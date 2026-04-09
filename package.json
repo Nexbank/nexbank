@@ -1,0 +1,24 @@
+
+
+{
+  "name": "nexbank",
+  "version": "1.0.0",
+    "scripts": {
+    "client": "npm start --prefix client",
+    "server": "nodemon server/server.js",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "description": "",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nexbank/nexbank.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nexbank/nexbank/issues"
+  },
+  "homepage": "https://github.com/Nexbank/nexbank#readme"
+}

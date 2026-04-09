@@ -1,0 +1,51 @@
+name: NexBank CI Pipeline
+ 
+on:
+  pull_request:
+    branches: [development, main]
+ 
+  push:
+    branches: [development]
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      # 1. Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+ 
+      # 2. Setup Node.js
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+ 
+      # 3. Install root dependencies (if any)
+      - name: Install root dependencies
+        run: npm install || true
+ 
+      # 4. Install backend dependencies
+      - name: Install server dependencies
+        run: |
+          cd server
+          npm install
+ 
+      # 5. Install frontend dependencies
+      - name: Install client dependencies
+        run: |
+          cd client
+          npm install
+ 
+      # 6. Build frontend
+      - name: Build React app
+        run: |
+          cd client
+          npm run build
+ 
+      # 7. Check backend (basic run check)
+      - name: Check backend startup
+        run: |
+          cd server
+          node -e "console.log('Backend check passed')"

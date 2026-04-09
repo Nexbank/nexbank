@@ -12,7 +12,7 @@ function Dashboard() {
     fetchData();
   }, []);
 
-  return <h1>Balance: R{balance}</h1>;
+  return <h1>Balances: R{balance}</h1>;
 }
 
 export default Dashboard;

@@ -19,17 +19,17 @@ function Dashboard() {
   }, []);
 
   return (
-    <div style={styles.page}>
-      <Sidebar style={styles.sidebar} />
+    <div className="dashboard-page">
+      <Sidebar />
 
-      <div style={styles.mainPanel}>
+      <div className="dashboard-main-panel">
         <Navbar />
 
-        <main style={styles.contentArea}>
-          <section style={styles.balanceCard}>
-            <p style={styles.eyebrow}>Available Balance</p>
-            <h1 style={styles.balanceAmount}>R{balance.toLocaleString()}</h1>
-            <p style={styles.balanceHint}>
+        <main className="dashboard-content-area">
+          <section className="dashboard-balance-card">
+            <p className="dashboard-eyebrow">Available Balance</p>
+            <h1 className="dashboard-balance-amount">R{balance.toLocaleString()}</h1>
+            <p className="dashboard-balance-hint">
               Your sidebar and header are now rendering together inside the dashboard
               layout.
             </p>
@@ -39,57 +39,5 @@ function Dashboard() {
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    background: "#090909",
-    color: "#f5f7fa",
-  },
-  sidebar: {
-    width: "252px",
-    flexShrink: 0,
-  },
-  mainPanel: {
-    flex: 1,
-    minWidth: 0,
-    display: "flex",
-    flexDirection: "column",
-    background:
-      "radial-gradient(circle at top left, rgba(24, 195, 126, 0.08), transparent 28%), #090909",
-  },
-  contentArea: {
-    flex: 1,
-    padding: "32px",
-    boxSizing: "border-box",
-  },
-  balanceCard: {
-    maxWidth: "420px",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02))",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "24px",
-    padding: "28px",
-    boxShadow: "0 18px 40px rgba(0, 0, 0, 0.22)",
-  },
-  eyebrow: {
-    margin: 0,
-    color: "#8f9198",
-    fontSize: "13px",
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-  },
-  balanceAmount: {
-    margin: "12px 0 10px",
-    fontSize: "40px",
-    lineHeight: 1.1,
-  },
-  balanceHint: {
-    margin: 0,
-    color: "#b6bac2",
-    fontSize: "15px",
-    lineHeight: 1.6,
-  },
-};
 
 export default Dashboard;

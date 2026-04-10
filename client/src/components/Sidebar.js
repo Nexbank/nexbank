@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const navItems = [
-  "Dashboard",
-  "Transactions",
-  "Cards",
-  "Insights",
-  "Profile",
-  "Settings",
+  { name: "Dashboard", path: "/dashboard" },
+  { name: "Transactions", path: "/transactions" },
+  { name: "Cards", path: "/cards" },
+  { name: "Insights", path: "/insights" },
+  { name: "Profile", path: "/profile" },
+  { name: "Settings", path: "/settings" },
 ];
 
 export default function Sidebar() {
-  const [active, setActive] = useState("Transactions");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <aside className="sidebar">
@@ -21,11 +22,13 @@ export default function Sidebar() {
       <nav>
         {navItems.map((item) => (
           <div
-            key={item}
-            className={`nav-item ${active === item ? "active" : ""}`}
-            onClick={() => setActive(item)}
+            key={item.name}
+            className={`nav-item ${
+              location.pathname === item.path ? "active" : ""
+            }`}
+            onClick={() => navigate(item.path)}
           >
-            {item}
+            {item.name}
           </div>
         ))}
       </nav>

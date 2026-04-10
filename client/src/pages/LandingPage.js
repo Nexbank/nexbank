@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import imge from "../assets/Confident professional with smartphone.png";
+import Navbar from "../components/Navbar";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -11,11 +12,13 @@ const LandingPage = () => {
       {/* BACKGROUND GLOWS */}
       <div className="lp-glow primary" />
       <div className="lp-glow secondary" />
+      <Navbar />
 
       {/* HERO SECTION */}
       <section className="lp-hero">
         <h1>
-          Your Banking, Simplified.<br />
+          Your Banking, Simplified.
+          <br />
           <span>NexBank</span>
         </h1>
         <p>

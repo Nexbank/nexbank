@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
 import Login from "./pages/Login";
+import Register from "./pages/Register";  // 👈 ADD THIS IMPORT
 import Dashboard from "./pages/Dashboard";
 import LandingPage from "./pages/LandingPage";
 import Transactions from "./pages/Transactions";
@@ -16,6 +17,7 @@ function App() {
 
         {/* Other pages */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />  {/* 👈 ADD THIS ROUTE */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/profile" element={<Profile />} />

@@ -34,7 +34,6 @@
    🌑 BASE & RESET
 ========================= */
 * {
-  margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
@@ -71,21 +70,24 @@ body {
   color: #fff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 28px 16px 24px;
+ justify-content: flex-start;
+  padding: 16px 16px 20px;
 }
 
 .sidebar__logo-wrap {
-  padding: 0 8px 22px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 14px;
+  padding: 0 0 18px;
+   padding-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .sidebar__logo-image {
-  width: 150px;
-  height: 80px;
+  height: 44px;
   object-fit: contain;
   display: block;
+}
+
+.sidebar__nav {
+  margin-top: 4px;
 }
 
 .sidebar__nav-list {
@@ -103,7 +105,7 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px;
+  padding: 10px 14px;
   border-radius: 14px;
   cursor: pointer;
   font-size: 17px;
@@ -136,9 +138,9 @@ body {
 }
 
 .sidebar__logout-wrap {
+  margin-top: auto; /* ✅ THIS pins it to bottom */
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 18px;
-  margin-top: 20px;
+  padding-top: 14px;
 }
 
 .sidebar__logout-button {

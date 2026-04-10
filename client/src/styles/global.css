@@ -229,3 +229,130 @@ body {
 .empty {
   color: var(--color-text-light);
 }
+
+/* =========================
+   ⚙️ SETTINGS PAGE
+========================= */
+
+.settings-container {
+  max-width: 740px;
+  width: 100%;
+  margin: 0 auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+/* Section */
+.settings-section {
+  width: 100%;
+}
+
+
+.settings-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-light);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 20px 4px 10px;
+}
+
+.settings-box {
+  background: var(--color-surface-light);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Row */
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid #1e1e1e;
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-icon {
+  width: 40px;
+  height: 40px;
+  background: #1f1f1f;
+  border: 0.5px solid #2a2a2a;
+  border-radius: var(--radius-sm);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.setting-text {
+  flex: 1;
+}
+
+.setting-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.setting-subtitle {
+  font-size: 12px;
+  color: var(--color-text-light);
+  margin-top: 2px;
+}
+
+.setting-chevron {
+  color: #444;
+  font-size: 16px;
+}
+
+/* Footer */
+.settings-footer {
+  text-align: center;
+  color: #333;
+  font-size: 12px;
+  margin-top: 32px;
+}
+
+/* =========================
+   TOGGLE SWITCH
+========================= */
+
+.toggle {
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: #333;
+  position: relative;
+  cursor: pointer;
+  transition: 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-on {
+  background: var(--color-primary);
+}
+
+.toggle-circle {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: 0.2s;
+}
+
+.toggle-on .toggle-circle {
+  left: 25px;
+}

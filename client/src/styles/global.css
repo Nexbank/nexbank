@@ -31,17 +31,23 @@
 }
 
 /* =========================
-   🌑 BASE
+   🌑 BASE & RESET
 ========================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
 }
 
 /* =========================
-   📐 LAYOUT
+   📐 APP LAYOUT
 ========================= */
 .app {
   display: flex;
@@ -70,6 +76,7 @@ body {
   padding: 0 20px 28px;
   font-size: 20px;
   font-weight: bold;
+  color: var(--color-primary);
 }
 
 .nav-item {
@@ -208,6 +215,167 @@ body {
 }
 
 /* =========================
+   🔐 AUTH PAGES (Login / Register / Forgot Password)
+   Uses ONLY team design tokens - no duplicates
+========================= */
+
+/* Auth Container - Split Screen Layout */
+.auth-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Left Panel - Welcome Section */
+.auth-left {
+  flex: 1;
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-bg));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+}
+
+.auth-left h1 {
+  font-size: 48px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  color: var(--color-primary);
+}
+
+.auth-left p {
+  font-size: 18px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* Right Panel - Form Section */
+.auth-right {
+  flex: 1;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+}
+
+.auth-right h2 {
+  font-size: 32px;
+  margin-bottom: 32px;
+  color: var(--color-text);
+}
+
+.auth-right h3 {
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: var(--color-text);
+}
+
+/* Form Elements - Using team tokens */
+.auth-right input,
+.auth-input {
+  width: 100%;
+  padding: 14px 16px;
+  margin: 8px 0;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 16px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.auth-right input:focus,
+.auth-input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.auth-right input::placeholder,
+.auth-input::placeholder {
+  color: var(--color-text-light);
+}
+
+/* Buttons */
+.auth-right button,
+.auth-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 24px;
+  background: var(--color-primary);
+  color: #000;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.auth-right button:hover,
+.auth-button:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+/* Links */
+.auth-right .link,
+.auth-link {
+  color: var(--color-primary);
+  cursor: pointer;
+  margin-top: 16px;
+  display: inline-block;
+  font-size: 14px;
+  background: none;
+  border: none;
+  padding: 0;
+  width: auto;
+}
+
+.auth-right .link:hover,
+.auth-link:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+/* Paragraph text in auth forms */
+.auth-right p {
+  margin-top: 16px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* Link inside paragraphs */
+.auth-right p a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.auth-right p a:hover {
+  text-decoration: underline;
+}
+
+/* Space between form groups */
+.auth-right form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Button variants */
+.auth-button-secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.auth-button-secondary:hover {
+  background: var(--color-surface-hover);
+  transform: none;
+}
+
+/* =========================
    🎯 UTILITY CLASSES
 ========================= */
 .text-primary {
@@ -228,4 +396,28 @@ body {
 
 .empty {
   color: var(--color-text-light);
+}
+
+/* Responsive Design for Auth Pages */
+@media (max-width: 768px) {
+  .auth-wrapper {
+    flex-direction: column;
+  }
+  
+  .auth-left {
+    padding: 32px;
+    min-height: 200px;
+  }
+  
+  .auth-left h1 {
+    font-size: 32px;
+  }
+  
+  .auth-right {
+    padding: 32px;
+  }
+  
+  .auth-right h2 {
+    font-size: 28px;
+  }
 }

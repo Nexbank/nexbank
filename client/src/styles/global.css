@@ -1,0 +1,231 @@
+/* =========================
+   🎨 DESIGN SYSTEM (TOKENS)
+========================= */
+:root {
+  /* Brand */
+  --color-primary: #00c87a;
+  --color-primary-dark: #0f3d25;
+
+  /* Backgrounds */
+  --color-bg: #0a0a0a;
+  --color-surface: #111;
+  --color-surface-light: #161616;
+  --color-surface-hover: #1a1a1a;
+
+  /* Borders */
+  --color-border: #222;
+
+  /* Text */
+  --color-text: #e8e8e8;
+  --color-text-muted: #aaa;
+  --color-text-light: #666;
+
+  /* Status */
+  --color-success: #00c87a;
+  --color-danger: #ff4d4d;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+}
+
+/* =========================
+   🌑 BASE
+========================= */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* =========================
+   📐 LAYOUT
+========================= */
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================
+   📌 SIDEBAR
+========================= */
+.sidebar {
+  width: 220px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+}
+
+.logo {
+  padding: 0 20px 28px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.nav-item {
+  padding: 12px 20px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.nav-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.nav-item.active {
+  background: var(--color-primary-dark);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  margin: 0 8px;
+}
+
+.nav-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+}
+
+.logout {
+  color: var(--color-danger);
+}
+
+/* =========================
+   📌 NAVBAR
+========================= */
+.topbar {
+  display: flex;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+}
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+  background: var(--color-surface-hover);
+  padding: 8px 15px;
+  border-radius: 30px;
+  width: 350px;
+}
+
+.search-bar input {
+  background: none;
+  border: none;
+  color: var(--color-text);
+  outline: none;
+  width: 100%;
+}
+
+.user-area {
+  margin-left: auto;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.user-name {
+  font-size: 14px;
+}
+
+.user-role {
+  font-size: 11px;
+  color: var(--color-text-light);
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  background: var(--color-primary);
+  border-radius: 50%;
+}
+
+/* =========================
+   📌 CONTENT
+========================= */
+.content {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* =========================
+   💳 TRANSACTIONS
+========================= */
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tx-card {
+  background: var(--color-surface-light);
+  padding: 15px;
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.tx-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tx-info {
+  flex: 1;
+}
+
+.tx-name {
+  font-weight: 500;
+}
+
+.tx-date {
+  font-size: 12px;
+  color: var(--color-text-light);
+}
+
+.tx-amount {
+  text-align: right;
+}
+
+.tx-tag {
+  font-size: 10px;
+  color: var(--color-text-light);
+}
+
+/* =========================
+   🎯 UTILITY CLASSES
+========================= */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.empty {
+  color: var(--color-text-light);
+}

@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
 import Login from "./pages/Login";
-import Register from "./pages/Register";  // 👈 ADD THIS IMPORT
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import LandingPage from "./pages/LandingPage";
 import Transactions from "./pages/Transactions";
@@ -12,12 +12,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Landing page FIRST */}
+        {/* Landing page */}
         <Route path="/" element={<LandingPage />} />
 
-        {/* Other pages */}
+        {/* Auth pages */}
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />  {/* 👈 ADD THIS ROUTE */}
+        <Route path="/register" element={<Register />} />
+
+        {/* Main app pages */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/profile" element={<Profile />} />

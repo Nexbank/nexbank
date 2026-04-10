@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import API from "../services/api";
 
@@ -7,13 +7,43 @@ function Login() {
 
   return (
     <div className="auth-wrapper">
-      {/* LEFT SIDE */}
+      {/* LEFT SIDE - ANIMATED PHONE */}
       <div className="auth-left">
+        <div className="floating-phone-container">
+          <div className="phone-mockup">
+            <div className="phone-screen">
+              <div className="phone-header">
+                <span className="phone-time">09:41</span>
+                <div className="phone-battery">
+                  <span>📶</span> <span>🔋</span>
+                </div>
+              </div>
+              <div className="phone-app">
+                <div className="app-icon">🏦</div>
+                <div className="app-name">NexBank</div>
+                <div className="phone-balance">R 12,750</div>
+                <div className="phone-transactions">
+                  <div className="phone-tx">⬆️ Sent R250</div>
+                  <div className="phone-tx">⬇️ Received R1,200</div>
+                  <div className="phone-tx">💳 Card Payment</div>
+                </div>
+              </div>
+            </div>
+            <div className="phone-home-button"></div>
+          </div>
+        </div>
+        
+        {/* Floating elements around phone */}
+        <div className="floating-element element-1">💳</div>
+        <div className="floating-element element-2">💰</div>
+        <div className="floating-element element-3">🔒</div>
+        <div className="floating-element element-4">⚡</div>
+        
         <h1>Welcome to NexBank</h1>
         <p>Your Money Simplified</p>
       </div>
 
-      {/* RIGHT SIDE */}
+      {/* RIGHT SIDE - LOGIN FORM */}
       <div className="auth-right">
         {step === 0 && <LoginForm goToForgot={() => setStep(1)} />}
         {step === 1 && <StepID next={() => setStep(2)} />}
@@ -48,33 +78,53 @@ function LoginForm({ goToForgot }) {
 
   return (
     <>
-      <h2>Login</h2>
+      <div className="form-header">
+        <h2>Login</h2>
+        <p className="form-subtitle">Access your NexBank account</p>
+      </div>
 
-      <input
-        className="auth-input"
-        type="email"
-        placeholder="Email"
-        onChange={(e) => setEmail(e.target.value)}
-      />
+      <div className="input-group">
+        <label>Email or Access Card</label>
+        <input
+          className="auth-input"
+          type="email"
+          placeholder="Enter your email"
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
 
-      <input
-        className="auth-input"
-        type="password"
-        placeholder="Password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <div className="input-group">
+        <label>Password</label>
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Enter your password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
 
-      <p className="auth-link" onClick={goToForgot}>
-        Forgot password?
-      </p>
+      <div className="form-options">
+        <label className="checkbox-label">
+          <input type="checkbox" /> Remember me
+        </label>
+        <p className="auth-link" onClick={goToForgot}>
+          Forgot password?
+        </p>
+      </div>
 
       <button className="auth-button" onClick={handleLogin}>
         Login
       </button>
 
-      <p>
-        Don't have an account? <Link to="/register" className="auth-link">Sign up</Link>
-      </p>
+      <div className="register-link">
+        <p>
+          Don't have an account? <Link to="/register">Register</Link>
+        </p>
+      </div>
+
+      <div className="contact-support">
+        <p>Need to talk to us directly? <span className="contact-link">Contact us →</span></p>
+      </div>
     </>
   );
 }
@@ -108,7 +158,7 @@ function StepID({ next }) {
 }
 
 //////////////////////////////////////////////////
-// STEP 2 – PHONE OTP (FIXED - user enters phone number first)
+// STEP 2 – PHONE OTP
 //////////////////////////////////////////////////
 
 function StepPhone({ next }) {
@@ -166,7 +216,7 @@ function StepPhone({ next }) {
 }
 
 //////////////////////////////////////////////////
-// STEP 3 – EMAIL OTP (FIXED - user enters email first)
+// STEP 3 – EMAIL OTP
 //////////////////////////////////////////////////
 
 function StepEmail({ next }) {

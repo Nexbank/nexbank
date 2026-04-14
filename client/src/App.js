@@ -7,6 +7,7 @@ import LandingPage from "./pages/LandingPage";
 import Transactions from "./pages/Transactions";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import Insights from "./pages/Insights";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         {/* Main app pages */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>

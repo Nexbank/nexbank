@@ -28,15 +28,12 @@ function App() {
         {/* Main app pages */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
-<<<<<<< HEAD
         <Route path="/cards" element={<Cards />} />
         <Route path="/deposit" element={<Deposit />} />
         <Route path="/withdraw" element={<Withdraw />} />
         <Route path="/transfer" element={<Transfer />} />
         <Route path="/pay-bills" element={<PayBills />} />
-=======
         <Route path="/insights" element={<Insights />} />
->>>>>>> development
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>

@@ -63,7 +63,9 @@ export default Login;
 
 function LoginForm({ goToForgot }) {
   const navigate = useNavigate();
+  // eslint-disable-next-line no-unused-vars
   const [email, setEmail] = useState("");
+  // eslint-disable-next-line no-unused-vars
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {

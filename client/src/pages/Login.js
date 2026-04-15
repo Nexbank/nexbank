@@ -1,6 +1,5 @@
-import { useState} from "react";
-import { Link } from "react-router-dom";
-import API from "../services/api";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 function Login() {
   const [step, setStep] = useState(0);
@@ -63,17 +62,12 @@ export default Login;
 //////////////////////////////////////////////////
 
 function LoginForm({ goToForgot }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = async () => {
-    try {
-      const res = await API.post("/auth/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      window.location.href = "/dashboard";
-    } catch (err) {
-      alert("Invalid login details");
-    }
+  const handleLogin = () => {
+    navigate("/dashboard");
   };
 
   return (

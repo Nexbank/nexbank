@@ -30,6 +30,11 @@ export default function Sidebar() {
     setIsMobileOpen(false);
   }, [location.pathname]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
   return (
     <>
       <button
@@ -109,7 +114,11 @@ export default function Sidebar() {
         </nav>
 
         <div className="sidebar__logout-wrap">
-          <button type="button" className="sidebar__logout-button">
+          <button
+            type="button"
+            className="sidebar__logout-button"
+            onClick={handleLogout}
+          >
             <span className="sidebar__nav-icon">
               <FiLogOut size={20} />
             </span>

@@ -31,22 +31,15 @@ const Profile = () => {
     language: "English (ZA)",
   });
 
-  // Handle back to dashboard
   const handleBackToDashboard = () => {
     navigate("/dashboard");
   };
 
-  // Handle edit button click
   const handleEditClick = () => {
-    setEditForm({
-      email: userInfo.email,
-      phone: userInfo.phone,
-      location: userInfo.location,
-    });
+    setEditForm({ ...userInfo });
     setIsEditing(true);
   };
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({
@@ -55,31 +48,21 @@ const Profile = () => {
     }));
   };
 
-  // Save edited information
   const handleSave = () => {
-    setUserInfo({
-      email: editForm.email,
-      phone: editForm.phone,
-      location: editForm.location,
-    });
+    setUserInfo({ ...editForm });
     setIsEditing(false);
     alert("Profile information updated successfully!");
   };
 
-  // Cancel editing
   const handleCancel = () => {
     setIsEditing(false);
   };
 
-  // Toggle preferences
   const toggleTwoFactor = () => {
     setPreferences((prev) => ({
       ...prev,
       twoFactor: !prev.twoFactor,
     }));
-    alert(
-      `Two-Factor Authentication ${!preferences.twoFactor ? "Enabled" : "Disabled"}`,
-    );
   };
 
   const toggleNotifications = () => {
@@ -87,9 +70,6 @@ const Profile = () => {
       ...prev,
       pushNotifications: !prev.pushNotifications,
     }));
-    alert(
-      `Push Notifications ${!preferences.pushNotifications ? "Enabled" : "Disabled"}`,
-    );
   };
 
   const handleLanguageChange = () => {
@@ -102,167 +82,184 @@ const Profile = () => {
     ];
     const currentIndex = languages.indexOf(preferences.language);
     const nextIndex = (currentIndex + 1) % languages.length;
+
     setPreferences((prev) => ({
       ...prev,
       language: languages[nextIndex],
     }));
-    alert(`Language changed to ${languages[nextIndex]}`);
   };
 
   return (
     <div className="app">
       <Sidebar />
+
       <div className="main">
         <Navbar />
-        <div className="profile-container">
-          {/* Header with Back Arrow and User Info */}
-          <div className="profile-header">
-            <button
-              onClick={handleBackToDashboard}
-              className="profile-back-btn"
-              aria-label="Back to Dashboard"
-            >
-              ←
-            </button>
-            <div className="profile-avatar">
-              <span>N</span>
-            </div>
-            <div className="profile-user-info">
-              <h1>Hi, Nozwelo</h1>
-              <p className="profile-badge">Premium Member since 2024</p>
-            </div>
-          </div>
 
-          {/* Main Content */}
-          <div className="profile-content">
-            {/* Personal Information Section */}
-            <div className="profile-section">
-              <h2>Personal Information</h2>
+        {/* 🔥 THIS FIXES YOUR SCROLL ISSUE */}
+        <div className="content">
+          <div className="profile-container">
 
-              {!isEditing ? (
-                // Display mode
-                <>
-                  <div className="profile-field">
-                    <label>Email Address:</label>
-                    <p>{userInfo.email}</p>
-                  </div>
-                  <div className="profile-field">
-                    <label>Phone Number:</label>
-                    <p>{userInfo.phone}</p>
-                  </div>
-                  <div className="profile-field">
-                    <label>Location:</label>
-                    <p>{userInfo.location}</p>
+            {/* Header */}
+            <div className="profile-header">
+              <button
+                onClick={handleBackToDashboard}
+                className="profile-back-btn"
+              >
+                ←
+              </button>
+
+              <div className="profile-avatar">
+                <span>N</span>
+              </div>
+
+              <div className="profile-user-info">
+                <h1>Hi, Nozwelo</h1>
+                <p className="profile-badge">
+                  Premium Member since 2024
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="profile-content">
+
+              {/* Personal Info */}
+              <div className="profile-section">
+                <h2>Personal Information</h2>
+
+                {!isEditing ? (
+                  <>
+                    <div className="profile-field">
+                      <label>Email Address:</label>
+                      <p>{userInfo.email}</p>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Phone Number:</label>
+                      <p>{userInfo.phone}</p>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Location:</label>
+                      <p>{userInfo.location}</p>
+                    </div>
+
+                    <button
+                      onClick={handleEditClick}
+                      className="profile-edit-btn"
+                    >
+                      Edit Information
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="profile-field">
+                      <label>Email Address:</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={editForm.email}
+                        onChange={handleInputChange}
+                        className="profile-input"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Phone Number:</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={editForm.phone}
+                        onChange={handleInputChange}
+                        className="profile-input"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Location:</label>
+                      <input
+                        type="text"
+                        name="location"
+                        value={editForm.location}
+                        onChange={handleInputChange}
+                        className="profile-input"
+                      />
+                    </div>
+
+                    <div className="profile-edit-actions">
+                      <button
+                        onClick={handleSave}
+                        className="profile-save-btn"
+                      >
+                        Save Changes
+                      </button>
+
+                      <button
+                        onClick={handleCancel}
+                        className="profile-cancel-btn"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Preferences */}
+              <div className="profile-section">
+                <h2>Account Preferences</h2>
+
+                <div className="profile-preference">
+                  <div className="preference-info">
+                    <span className="preference-name">
+                      Two-Factor Authentication
+                    </span>
+                    <span className={`preference-status ${preferences.twoFactor ? "enabled" : "disabled"}`}>
+                      {preferences.twoFactor ? "Enabled" : "Disabled"}
+                    </span>
                   </div>
                   <button
-                    onClick={handleEditClick}
-                    className="profile-edit-btn"
+                    onClick={toggleTwoFactor}
+                    className="preference-toggle"
                   >
-                    Edit Information
+                    Toggle
                   </button>
-                </>
-              ) : (
-                // Edit mode
-                <>
-                  <div className="profile-field">
-                    <label>Email Address:</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={editForm.email}
-                      onChange={handleInputChange}
-                      className="profile-input"
-                      placeholder="Enter email"
-                    />
-                  </div>
-                  <div className="profile-field">
-                    <label>Phone Number:</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={editForm.phone}
-                      onChange={handleInputChange}
-                      className="profile-input"
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                  <div className="profile-field">
-                    <label>Location:</label>
-                    <input
-                      type="text"
-                      name="location"
-                      value={editForm.location}
-                      onChange={handleInputChange}
-                      className="profile-input"
-                      placeholder="Enter location"
-                    />
-                  </div>
-                  <div className="profile-edit-actions">
-                    <button onClick={handleSave} className="profile-save-btn">
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="profile-cancel-btn"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Account Preferences Section */}
-            <div className="profile-section">
-              <h2>Account Preferences</h2>
-
-              <div className="profile-preference">
-                <div className="preference-info">
-                  <span className="preference-name">
-                    Two-Factor Authentication
-                  </span>
-                  <span
-                    className={`preference-status ${preferences.twoFactor ? "enabled" : "disabled"}`}
+                <div className="profile-preference">
+                  <div className="preference-info">
+                    <span className="preference-name">
+                      Push Notifications
+                    </span>
+                    <span className={`preference-status ${preferences.pushNotifications ? "enabled" : "disabled"}`}>
+                      {preferences.pushNotifications ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={toggleNotifications}
+                    className="preference-toggle"
                   >
-                    {preferences.twoFactor ? "Enabled" : "Disabled"}
-                  </span>
+                    Toggle
+                  </button>
                 </div>
-                <button onClick={toggleTwoFactor} className="preference-toggle">
-                  {preferences.twoFactor ? "Disable" : "Enable"}
-                </button>
-              </div>
 
-              <div className="profile-preference">
-                <div className="preference-info">
-                  <span className="preference-name">Push Notifications</span>
-                  <span
-                    className={`preference-status ${preferences.pushNotifications ? "enabled" : "disabled"}`}
+                <div className="profile-preference">
+                  <div className="preference-info">
+                    <span className="preference-name">Language</span>
+                    <span className="preference-value">
+                      {preferences.language}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleLanguageChange}
+                    className="preference-toggle"
                   >
-                    {preferences.pushNotifications ? "Enabled" : "Disabled"}
-                  </span>
+                    Change
+                  </button>
                 </div>
-                <button
-                  onClick={toggleNotifications}
-                  className="preference-toggle"
-                >
-                  {preferences.pushNotifications ? "Disable" : "Enable"}
-                </button>
               </div>
 
-              <div className="profile-preference">
-                <div className="preference-info">
-                  <span className="preference-name">Language</span>
-                  <span className="preference-value">
-                    {preferences.language}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLanguageChange}
-                  className="preference-toggle"
-                >
-                  Change
-                </button>
-              </div>
             </div>
           </div>
         </div>

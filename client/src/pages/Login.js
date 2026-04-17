@@ -6,38 +6,6 @@ function Login() {
 
   return (
     <div className="auth-wrapper">
-      {/* LEFT SIDE - ANIMATED PHONE */}
-      <div className="auth-left">
-        <div className="floating-phone-container">
-          <div className="phone-mockup">
-            <div className="phone-screen">
-              <div className="phone-header">
-                <span className="phone-time">09:41</span>
-                <div className="phone-battery">
-                  <span>📶</span> <span>🔋</span>
-                </div>
-              </div>
-              <div className="phone-app">
-                <div className="app-icon">🏦</div>
-                <div className="app-name">NexBank</div>
-                <div className="phone-balance">R 12,750</div>
-                <div className="phone-transactions">
-                  <div className="phone-tx">⬆️ Sent R250</div>
-                  <div className="phone-tx">⬇️ Received R1,200</div>
-                  <div className="phone-tx">💳 Card Payment</div>
-                </div>
-              </div>
-            </div>
-            <div className="phone-home-button"></div>
-          </div>
-        </div>
-        
-        {/* Floating elements around phone */}
-        <div className="floating-element element-1">💳</div>
-        <div className="floating-element element-2">💰</div>
-        <div className="floating-element element-3">🔒</div>
-        <div className="floating-element element-4">⚡</div>
-        
         <h1>Welcome to NexBank</h1>
         <p>Your Money Simplified</p>
       </div>

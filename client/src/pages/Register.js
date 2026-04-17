@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-const authHeroImage =
-  "https://images.generated.photos/TXD6gLmPduzmrbN6tendPXyeY1zz9CJNLlDQh2suDnk/g:no/rs:fill:256:384/czM6Ly9ncGhvdG9zLXByb2QtaHVtYW4tZ2FsbGVyeS80NDcxLzBiZjYwN2I2LTBjYzEtNGQxYi1iMDBjLTFhNGMyODAzMzI3Ni0wLmpwZw.jpg";
-
 function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({});
@@ -12,132 +9,213 @@ function Register() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleRegister = () => {
-    if (!form.firstname || !form.surname || !form.id || !form.email || !form.phone || !form.password) {
-      alert("Please fill all required fields");
+  const handleRegister = (e) => {
+    e.preventDefault();
+
+    if (
+      !form.firstname ||
+      !form.surname ||
+      !form.id ||
+      !form.email ||
+      !form.phone ||
+      !form.address ||
+      !form.password
+    ) {
+      alert("Please fill all required fields.");
       return;
     }
 
-    if (form.id.length !== 13 || isNaN(form.id)) {
-      alert("SA ID must be exactly 13 digits");
+    if (form.id.length !== 13 || Number.isNaN(Number(form.id))) {
+      alert("SA ID must be exactly 13 digits.");
       return;
     }
 
     if (form.password !== form.confirm) {
-      alert("Passwords do not match");
+      alert("Passwords do not match.");
       return;
     }
 
     alert("Registration successful! Please login.");
-    navigate("/");
+    navigate("/login");
   };
 
   return (
-    <div className="auth-wrapper auth-shell container-fluid">
-      <div className="row g-4 align-items-stretch justify-content-center w-100 m-0">
-        <div className="col-12 col-lg-6 d-flex">
-          <div className="auth-left auth-showcase auth-card-soft w-100">
-            <div className="auth-copy">
-              <span className="auth-eyebrow">Open your account</span>
-              <h1>Create NexBank Account</h1>
-              <p>
-                Join NexBank with a cleaner registration flow that feels modern,
-                warm, and easy to complete.
-              </p>
-
-              <div className="auth-showcase-photo card border-0 shadow-sm">
-                <img
-                  src={authHeroImage}
-                  alt="AI-generated happy person excited to use NexBank"
-                  className="img-fluid"
-                />
-                <div className="card-body">
-                  <h3 className="auth-showcase-title">A friendly first impression</h3>
-                  <p className="mb-0">
-                    Clear steps, softer visuals, and the same trusted NexBank color
-                    palette your team is already using.
-                  </p>
-                </div>
+    <div className="auth-shell auth-shell--register container-fluid">
+      <div className="row g-0 min-vh-100">
+        <div className="col-lg-6 auth-brand-panel">
+          <div className="auth-brand-inner">
+            <div className="auth-brand-lockup">
+              <img
+                src="/NexBank-logo.png"
+                alt="NexBank"
+                className="auth-brand-logo"
+              />
+              <div className="auth-brand-lockup-copy">
+                <span className="auth-brand-name">NexBank</span>
+                <span className="auth-brand-slogan">Your money simplified</span>
               </div>
+            </div>
+            <span className="auth-brand-chip">New Account</span>
+            <h1 className="auth-brand-title">Create a secure NexBank profile in a few clean steps.</h1>
+            <p className="auth-brand-copy">
+              Register with your personal details, address, and security credentials to get started.
+            </p>
 
-              <div className="row g-3 mt-1">
-                <div className="col-sm-6">
-                  <div className="auth-note-card h-100">Balanced two-column layout.</div>
-                </div>
-                <div className="col-sm-6">
-                  <div className="auth-note-card h-100">Cleaner form sizing with Bootstrap spacing.</div>
-                </div>
+            <div className="auth-brand-highlights">
+              <div className="auth-highlight-card">
+                <span className="auth-highlight-label">Personal details</span>
+                <strong>Full onboarding profile</strong>
+              </div>
+              <div className="auth-highlight-card">
+                <span className="auth-highlight-label">Address added</span>
+                <strong>Ready for account setup</strong>
+              </div>
+              <div className="auth-highlight-card">
+                <span className="auth-highlight-label">Secure finish</span>
+                <strong>Login after successful signup</strong>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-12 col-lg-5 d-flex">
-          <div className="auth-right auth-card-soft w-100">
-            <div className="auth-form-shell d-flex justify-content-center align-items-center w-100">
-              <div className="auth-form-panel card border-0 shadow-sm w-100">
-                <div className="form-header">
-                  <span className="auth-section-tag">Register</span>
-                  <h2>Open your profile</h2>
-                  <p className="form-subtitle">Fill in your details to create your NexBank account.</p>
+        <div className="col-lg-6 auth-form-panel">
+          <div className="auth-panel-frame">
+            <div className="auth-panel-glow" />
+            <div className="auth-card auth-card--wide">
+              <div className="auth-switcher" role="tablist" aria-label="Authentication pages">
+                <Link className="auth-switcher-link" to="/login">
+                  Login
+                </Link>
+                <Link className="auth-switcher-link auth-switcher-link--active" to="/register">
+                  Register
+                </Link>
+              </div>
+              <form onSubmit={handleRegister}>
+                <div className="auth-card-header">
+                  <span className="auth-card-kicker">Open Your Account</span>
+                  <h2 className="auth-card-title">Register with NexBank</h2>
+                  <p className="auth-card-copy">
+                    A compact, professional form with the details needed to create your profile.
+                  </p>
                 </div>
 
-                <div className="auth-grid">
-                  <input
-                    className="auth-input"
-                    name="firstname"
-                    placeholder="First Name"
-                    onChange={handleChange}
-                  />
-                  <input
-                    className="auth-input"
-                    name="surname"
-                    placeholder="Surname"
-                    onChange={handleChange}
-                  />
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="firstname">
+                      First Name
+                    </label>
+                    <input
+                      id="firstname"
+                      className="form-control auth-control"
+                      name="firstname"
+                      placeholder="First name"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="surname">
+                      Surname
+                    </label>
+                    <input
+                      id="surname"
+                      className="form-control auth-control"
+                      name="surname"
+                      placeholder="Surname"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label auth-label" htmlFor="register-id">
+                      SA ID Number
+                    </label>
+                    <input
+                      id="register-id"
+                      className="form-control auth-control"
+                      name="id"
+                      placeholder="13-digit South African ID number"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="register-email">
+                      Email Address
+                    </label>
+                    <input
+                      id="register-email"
+                      className="form-control auth-control"
+                      name="email"
+                      type="email"
+                      placeholder="Email address"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="register-phone">
+                      Cellphone Number
+                    </label>
+                    <input
+                      id="register-phone"
+                      className="form-control auth-control"
+                      name="phone"
+                      placeholder="Cellphone number"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label auth-label" htmlFor="register-address">
+                      Home Address
+                    </label>
+                    <input
+                      id="register-address"
+                      className="form-control auth-control"
+                      name="address"
+                      placeholder="Street address"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="register-password">
+                      Password
+                    </label>
+                    <input
+                      id="register-password"
+                      className="form-control auth-control"
+                      type="password"
+                      name="password"
+                      placeholder="Password"
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label auth-label" htmlFor="register-confirm">
+                      Confirm Password
+                    </label>
+                    <input
+                      id="register-confirm"
+                      className="form-control auth-control"
+                      type="password"
+                      name="confirm"
+                      placeholder="Confirm password"
+                      onChange={handleChange}
+                    />
+                  </div>
                 </div>
 
-                <input
-                  className="auth-input"
-                  name="id"
-                  placeholder="SA ID Number (13 digits)"
-                  onChange={handleChange}
-                />
-                <input
-                  className="auth-input"
-                  name="email"
-                  placeholder="Email Address"
-                  onChange={handleChange}
-                />
-                <input
-                  className="auth-input"
-                  name="phone"
-                  placeholder="Cellphone Number"
-                  onChange={handleChange}
-                />
-                <input
-                  className="auth-input"
-                  type="password"
-                  name="password"
-                  placeholder="Password"
-                  onChange={handleChange}
-                />
-                <input
-                  className="auth-input"
-                  type="password"
-                  name="confirm"
-                  placeholder="Confirm Password"
-                  onChange={handleChange}
-                />
-
-                <button className="auth-button" onClick={handleRegister}>
+                <button className="btn auth-primary-btn w-100" type="submit">
                   Register
                 </button>
 
-                <p className="auth-inline-note auth-inline-note-center">
-                  Already have an account? <Link to="/" className="auth-link">Login</Link>
+                <p className="auth-footnote text-center mb-0">
+                  Already have an account? <Link to="/login">Login</Link>
                 </p>
-              </div>
+              </form>
             </div>
           </div>
         </div>

@@ -1,3 +1,6 @@
+const dns = require("dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 const express = require("express");
 
 const mongoose = require("mongoose");
@@ -25,6 +28,7 @@ app.use("/api/auth", authRoutes);
 mongoose
 
   .connect(process.env.MONGO_URI)
+  
 
   .then(() => console.log("✅ MongoDB Connected"))
 
@@ -39,5 +43,6 @@ app.get("/", (req, res) => {
 // Start Server
 
 const PORT = 5000;
+
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

@@ -1,6 +1,8 @@
+// models/User.js
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
+<<<<<<< HEAD
 <<<<<<< Updated upstream
   email: String,
 
@@ -21,6 +23,15 @@ const userSchema = new mongoose.Schema({
   location: String,
   createdAt: { type: Date, default: Date.now },
 >>>>>>> Stashed changes
+=======
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  displayName: String,
+  phone: String,
+  saIdNumber: String,
+  location: String,
+  createdAt: { type: Date, default: Date.now }
+>>>>>>> development
 });
 
 module.exports = mongoose.model("User", userSchema);

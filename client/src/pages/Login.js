@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function Login() {
   return (
@@ -66,8 +67,9 @@ function LoginForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -75,7 +77,29 @@ function LoginForm() {
       return;
     }
 
-    navigate("/dashboard");
+    try {
+      setIsSubmitting(true);
+
+      const response = await API.post("/auth/login", {
+        email: email.trim(),
+        password,
+      });
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      console.log("Successfully logged in", response.data.user);
+
+      navigate("/dashboard");
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Login failed. Please try again.";
+
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -127,8 +151,8 @@ function LoginForm() {
         </Link>
       </div>
 
-      <button className="btn auth-primary-btn w-100" type="submit">
-        Login
+      <button className="btn auth-primary-btn w-100" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Logging in..." : "Login"}
       </button>
 
       <div className="auth-divider">

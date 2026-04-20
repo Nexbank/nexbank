@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState({
+    firstname: "",
+    surname: "",
+    id: "",
+    email: "",
+    phone: "",
+    address: "",
+    password: "",
+    confirm: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
     if (
@@ -35,8 +46,31 @@ function Register() {
       return;
     }
 
-    alert("Registration successful! Please login.");
-    navigate("/login");
+    try {
+      setIsSubmitting(true);
+
+      await API.post("/auth/register", {
+        firstname: form.firstname.trim(),
+        surname: form.surname.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        saIdNumber: form.id.trim(),
+        address: form.address.trim(),
+        password: form.password,
+      });
+
+      alert("Registration successful! Please login.");
+      navigate("/login");
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Registration failed. Please try again.";
+
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -109,6 +143,7 @@ function Register() {
                       className="form-control auth-control"
                       name="firstname"
                       placeholder="First name"
+                      value={form.firstname}
                       onChange={handleChange}
                     />
                   </div>
@@ -122,6 +157,7 @@ function Register() {
                       className="form-control auth-control"
                       name="surname"
                       placeholder="Surname"
+                      value={form.surname}
                       onChange={handleChange}
                     />
                   </div>
@@ -135,6 +171,7 @@ function Register() {
                       className="form-control auth-control"
                       name="id"
                       placeholder="13-digit South African ID number"
+                      value={form.id}
                       onChange={handleChange}
                     />
                   </div>
@@ -149,6 +186,7 @@ function Register() {
                       name="email"
                       type="email"
                       placeholder="Email address"
+                      value={form.email}
                       onChange={handleChange}
                     />
                   </div>
@@ -162,6 +200,7 @@ function Register() {
                       className="form-control auth-control"
                       name="phone"
                       placeholder="Cellphone number"
+                      value={form.phone}
                       onChange={handleChange}
                     />
                   </div>
@@ -175,6 +214,7 @@ function Register() {
                       className="form-control auth-control"
                       name="address"
                       placeholder="Street address"
+                      value={form.address}
                       onChange={handleChange}
                     />
                   </div>
@@ -189,6 +229,7 @@ function Register() {
                       type="password"
                       name="password"
                       placeholder="Password"
+                      value={form.password}
                       onChange={handleChange}
                     />
                   </div>
@@ -203,13 +244,14 @@ function Register() {
                       type="password"
                       name="confirm"
                       placeholder="Confirm password"
+                      value={form.confirm}
                       onChange={handleChange}
                     />
                   </div>
                 </div>
 
-                <button className="btn auth-primary-btn w-100" type="submit">
-                  Register
+                <button className="btn auth-primary-btn w-100" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Registering..." : "Register"}
                 </button>
 
                 <p className="auth-footnote text-center mb-0">

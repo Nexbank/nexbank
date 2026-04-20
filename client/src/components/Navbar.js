@@ -32,8 +32,6 @@ function Navbar({
 
   return (
     <header className="navbar" style={style} aria-label="Top navigation bar">
-      
-
       <label className="navbar__search" aria-label="Search">
         <FiSearch size={18} className="navbar__search-icon" />
         <input

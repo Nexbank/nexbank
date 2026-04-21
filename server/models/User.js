@@ -18,6 +18,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+
+  firstname: {
+    type: String,
+    trim: true
+  },
+
+  surname: {
+    type: String,
+    trim: true
+  },
  
   phone: {
     type: String,
@@ -29,6 +39,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     unique: true,
     sparse: true
+  },
+
+  address: {
+    type: String,
+    trim: true
   },
  
   location: {

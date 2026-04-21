@@ -1,8 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { formatCurrency } from "./utils/currency";
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test("formats currency values for banking screens", () => {
+  expect(formatCurrency(1250.5)).toContain("1");
+  expect(formatCurrency(1250.5)).toContain("250");
 });

@@ -9,7 +9,6 @@ import {
   FiShield,
   FiWifi,
 } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
@@ -58,22 +57,16 @@ const initialForm = {
 };
 
 export default function PayBills() {
-  const { accounts, balance, createTransaction, selectedAccountId, settleTransaction } =
-    useAccount();
+  const { selectedAccount, payBill } = useAccount();
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [status, setStatus] = useState("idle");
   const [receipt, setReceipt] = useState(null);
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
 
   const amountValue = Number(formData.amount || 0);
   const formattedAmount = useMemo(() => formatCurrency(formData.amount), [formData.amount]);
   const selectedCategory = billOptions.find((option) => option.id === formData.category);
-  const balanceAfterPayment = formatCurrency(balance - amountValue);
 
   const steps = [
     { id: 1, label: "Biller" },
@@ -112,20 +105,8 @@ export default function PayBills() {
       nextErrors.accountNumber = "Enter the bill account or meter number.";
     }
 
-    if (!Number(formData.amount) || Number(formData.amount) < 10) {
-      nextErrors.amount = "Pay at least R10.00.";
-    }
-
-    if (amountValue > balance) {
-      nextErrors.amount = "This exceeds your available balance.";
-    }
-
-    if (!activeAccount) {
-      nextErrors.amount = "Load an active account before paying a bill.";
-    }
-
-    if (activeAccount && amountValue > activeAccount.limits.bill) {
-      nextErrors.amount = "This exceeds your daily bill payment limit.";
+    if (!amountValue) {
+      nextErrors.amount = "Enter an amount to pay.";
     }
 
     if (!formData.reference.trim()) {
@@ -150,7 +131,7 @@ export default function PayBills() {
     setCurrentStep(3);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep()) {
       setCurrentStep(2);
       return;
@@ -158,45 +139,36 @@ export default function PayBills() {
 
     setStatus("submitting");
 
-    window.setTimeout(async () => {
-      const paymentId = `bill-${Date.now()}`;
+    try {
+      await payBill({
+        amount: amountValue,
+        category: formData.category,
+        provider: formData.provider,
+        accountNumber: formData.accountNumber,
+        billName: formData.billName,
+        dueDate: formData.dueDate,
+        reference: formData.reference,
+      });
 
-      try {
-        await createTransaction({
-          id: paymentId,
-          type: "bill",
-          direction: "debit",
-          accountId: activeAccount._id,
-          amount: amountValue,
-          status: "pending",
-          reference: formData.reference,
-          description: `Bill payment to ${formData.provider}`,
-          metadata: {
-            dueDate: formData.dueDate,
-            provider: formData.provider,
-            category: formData.category,
-            billName: formData.billName,
-            accountNumber: formData.accountNumber,
-          },
-        });
+      setReceipt({
+        amount: formattedAmount,
+        provider: formData.provider,
+        reference: formData.reference,
+        dueDate: formData.dueDate,
+        status: "Submitted for settlement",
+      });
+      setErrors({});
+      setStatus("success");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error || requestError.message || "Failed to pay bill.";
 
-        window.setTimeout(() => {
-          settleTransaction(paymentId, "completed").catch(() => {});
-        }, 4000);
-
-        setReceipt({
-          amount: formattedAmount,
-          provider: formData.provider,
-          reference: formData.reference,
-          dueDate: formData.dueDate,
-          status: "Submitted for settlement",
-        });
-        setStatus("success");
-      } catch (error) {
-        window.alert(error.response?.data?.error || error.message || "Failed to pay bill.");
-        setStatus("idle");
-      }
-    }, 900);
+      setErrors((current) => ({
+        ...current,
+        amount: current.amount || message,
+      }));
+      setStatus("idle");
+    }
   };
 
   const resetFlow = () => {
@@ -213,6 +185,10 @@ export default function PayBills() {
       : formData.category === "mobile"
         ? FiWifi
         : FiFileText;
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="dashboard-page">
@@ -232,8 +208,8 @@ export default function PayBills() {
                   <p className="action-page__eyebrow">Payments</p>
                   <h1 className="action-page__title">Pay Bills</h1>
                   <p className="action-page__copy">
-                    Choose the bill type, enter the bill details, and check everything before
-                    you pay.
+                    Choose the bill type, enter the bill details, and check everything before you
+                    pay from {selectedAccount.name}.
                   </p>
                 </div>
               </div>
@@ -252,22 +228,13 @@ export default function PayBills() {
               </div>
 
               <div className="action-workspace">
-                {!activeAccount ? (
-                  <AccountRequiredState
-                    title="Select an account to pay bills"
-                    copy="Bill payments are account-scoped. Choose an account before making a payment."
-                  />
-                ) : (
-                  <>
                 <div className="action-workspace__main">
                   <section className="action-panel">
                     <div className="action-panel__header">
                       <div>
                         <p className="action-panel__eyebrow">Choose type</p>
                         <h2 className="action-panel__title">What bill do you want to pay?</h2>
-                        <p className="action-panel__copy">
-                          Pick the bill type first.
-                        </p>
+                        <p className="action-panel__copy">Pick the bill type first.</p>
                       </div>
                     </div>
 
@@ -296,9 +263,7 @@ export default function PayBills() {
                       <div>
                         <p className="action-panel__eyebrow">Biller details</p>
                         <h2 className="action-panel__title">Enter bill details</h2>
-                        <p className="action-panel__copy">
-                          Check the account details before you pay.
-                        </p>
+                        <p className="action-panel__copy">Check the account details before you pay.</p>
                       </div>
                       <span className="action-state-badge action-state-badge--pending">
                         {formData.validationStatus}
@@ -321,7 +286,7 @@ export default function PayBills() {
                         <small className="action-helper action-helper--error">{errors.amount}</small>
                       ) : (
                         <small className="action-helper">
-                          Daily limit: {formatCurrency(activeAccount.limits.bill)}.
+                          Daily limit: {formatCurrency(selectedAccount.limits.bill)}.
                         </small>
                       )}
 
@@ -431,8 +396,8 @@ export default function PayBills() {
                           <strong>{formData.dueDate}</strong>
                         </div>
                         <div className="action-detail-row">
-                          <span>Balance after payment</span>
-                          <strong>{balanceAfterPayment}</strong>
+                          <span>Available balance</span>
+                          <strong>{formatCurrency(selectedAccount.availableBalance)}</strong>
                         </div>
                       </div>
 
@@ -485,11 +450,11 @@ export default function PayBills() {
                         </div>
                       </div>
                       <div className="action-review-card__amount">
-                        {formatCurrency(balance)}
+                        {formatCurrency(selectedAccount.availableBalance)}
                       </div>
                       <div className="action-review-card__meta">
                         <span>Paying from</span>
-                        <strong>{activeAccount.name}</strong>
+                        <strong>{selectedAccount.name}</strong>
                       </div>
                     </div>
 
@@ -548,8 +513,6 @@ export default function PayBills() {
                     </section>
                   ) : null}
                 </aside>
-                  </>
-                )}
               </div>
             </section>
           </div>

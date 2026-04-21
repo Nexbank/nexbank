@@ -8,7 +8,7 @@ export default function TransactionList({ transactions }) {
   return (
     <div className="tx-list">
       {transactions.map((transaction) => (
-        <div key={transaction.id} className="tx-card">
+        <div key={transaction._id || transaction.id} className="tx-card">
           <div className="tx-icon">R</div>
 
           <div className="tx-info">

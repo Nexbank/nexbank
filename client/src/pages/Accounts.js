@@ -1,11 +1,33 @@
 import { FiCheckCircle, FiCreditCard, FiLock, FiTrendingUp } from "react-icons/fi";
+import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
 import { formatCurrency } from "../utils/currency";
 
+const redirectLabels = {
+  "/cards": "cards",
+  "/deposit": "deposits",
+  "/withdraw": "withdrawals",
+  "/transfer": "transfers",
+  "/pay-bills": "bill payments",
+  "/transactions": "transactions",
+};
+
 export default function Accounts() {
   const { accounts, isLoading, selectedAccountId, selectAccount } = useAccount();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const redirectTo = location.state?.redirectTo || "";
+  const redirectLabel = redirectLabels[redirectTo] || "the next step";
+
+  const handleSelectAccount = (accountId) => {
+    selectAccount(accountId);
+
+    if (redirectTo) {
+      navigate(redirectTo, { replace: true });
+    }
+  };
 
   return (
     <div className="dashboard-page">
@@ -23,10 +45,11 @@ export default function Accounts() {
                 </span>
                 <div>
                   <p className="action-page__eyebrow">Accounts</p>
-                  <h1 className="action-page__title">Manage your accounts</h1>
+                  <h1 className="action-page__title">Your current account</h1>
                   <p className="action-page__copy">
-                    Switch between account types, review balances, and choose which account
-                    controls your cards and transactions.
+                    {redirectTo
+                      ? `Select the account you want to use before continuing to ${redirectLabel}.`
+                      : "Registration provisions one current account automatically. Fund it to activate cards and outgoing payments."}
                   </p>
                 </div>
               </div>
@@ -36,13 +59,19 @@ export default function Accounts() {
                   <section className="action-panel">
                     <div className="action-panel__header">
                       <div>
-                        <p className="action-panel__eyebrow">Account types</p>
-                        <h2 className="action-panel__title">Select the account you want to use</h2>
+                        <p className="action-panel__eyebrow">Provisioned account</p>
+                        <h2 className="action-panel__title">Review your current account</h2>
                         <p className="action-panel__copy">
-                          Pick one account below. Your cards and transactions will switch to
-                          match it immediately.
+                          Your approved current account is provisioned automatically after login and
+                          becomes the source of funds for account-specific actions across the app.
                         </p>
                       </div>
+
+                      {redirectTo ? (
+                        <span className="action-state-badge action-state-badge--pending">
+                          Continue to {redirectLabel}
+                        </span>
+                      ) : null}
                     </div>
 
                     {isLoading ? (
@@ -56,7 +85,7 @@ export default function Accounts() {
                       <article className="dashboard-empty-state">
                         <p className="dashboard-empty-title">No accounts found</p>
                         <p className="dashboard-empty-copy">
-                          We could not load any user accounts yet.
+                          We could not provision any accounts for this profile yet.
                         </p>
                       </article>
                     ) : (
@@ -71,9 +100,9 @@ export default function Accounts() {
                               className={`action-option-card action-option-card--account ${
                                 isActive ? "action-option-card--active" : ""
                               }`}
-                              onClick={() => selectAccount(account._id)}
+                              onClick={() => handleSelectAccount(account._id)}
                             >
-                              {isActive ? <span className="active-badge">Active</span> : null}
+                              {isActive ? <span className="active-badge">Selected</span> : null}
 
                               <div className="action-option-card__top">
                                 <h3>{account.name}</h3>
@@ -89,7 +118,9 @@ export default function Accounts() {
                               </small>
 
                               <div className="action-option-card__cta">
-                                {isActive ? "This is your active account" : "Click to select"}
+                                {isActive
+                                  ? "This is your default active account"
+                                  : "Click to make this the active account"}
                               </div>
 
                               <span
@@ -97,7 +128,7 @@ export default function Accounts() {
                                   isActive ? "action-select-btn--active" : ""
                                 }`}
                               >
-                                {isActive ? "Active Account" : "Select Account"}
+                                {isActive ? "Selected Account" : "Select Account"}
                               </span>
                             </button>
                           );
@@ -133,10 +164,20 @@ export default function Accounts() {
                             <span>Ledger balance</span>
                             <strong>{formatCurrency(account.ledgerBalance)}</strong>
                           </div>
+                          <div className="action-review-card__meta">
+                            <span>Activation</span>
+                            <strong>
+                              {account.isActive
+                                ? "Active"
+                                : `Awaiting ${formatCurrency(account.minimumFundingAmount)} funding`}
+                            </strong>
+                          </div>
                           {isActive ? (
                             <div className="action-review-card__meta">
                               <span>Status</span>
-                              <strong>Currently active</strong>
+                              <strong>
+                                {account.isActive ? "Currently active" : "Selected but inactive"}
+                              </strong>
                             </div>
                           ) : null}
                         </div>
@@ -145,16 +186,14 @@ export default function Accounts() {
                           <div className="action-checklist__item">
                             <FiCheckCircle size={16} />
                             <span>
-                              {isActive
-                                ? "This account is currently active across the app."
-                                : "Select this account to use it for payments and transfers."}
+                              {account.isActive
+                                ? "This account is active across cards, transfers, and payments."
+                                : "Make a qualifying deposit first to activate the account and physical card."}
                             </span>
                           </div>
                           <div className="action-checklist__item">
                             <FiLock size={16} />
-                            <span>
-                              Daily bill limit: {formatCurrency(account.limits.bill)}.
-                            </span>
+                            <span>Daily bill limit: {formatCurrency(account.limits.bill)}.</span>
                           </div>
                         </div>
                       </section>

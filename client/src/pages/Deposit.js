@@ -7,7 +7,6 @@ import {
   FiPlusCircle,
   FiRefreshCw,
 } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
@@ -56,16 +55,12 @@ const initialForm = {
 };
 
 export default function Deposit() {
-  const { accounts, createTransaction, error, selectedAccountId, settleTransaction } =
-    useAccount();
+  const { selectedAccount, depositFunds } = useAccount();
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle");
   const [receipt, setReceipt] = useState(null);
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
+  const [submitError, setSubmitError] = useState("");
 
   const amountValue = Number(formData.depositAmount || 0);
   const formattedAmount = useMemo(
@@ -77,16 +72,13 @@ export default function Deposit() {
     const value = event.target.value;
     setFormData((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: "" }));
+    setSubmitError("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     const nextErrors = {};
-
-    if (!activeAccount) {
-      nextErrors.depositAmount = "Load an active account before creating a deposit.";
-    }
 
     if (!formData.accountHolder.trim()) {
       nextErrors.accountHolder = "Enter the account holder name.";
@@ -96,12 +88,8 @@ export default function Deposit() {
       nextErrors.accountNumber = "Use 6 to 12 digits for the bank account number.";
     }
 
-    if (!amountValue || amountValue < 50) {
-      nextErrors.depositAmount = "Deposit at least R50.00.";
-    }
-
-    if (activeAccount && amountValue > activeAccount.limits.deposit) {
-      nextErrors.depositAmount = "This exceeds your daily deposit limit.";
+    if (!amountValue) {
+      nextErrors.depositAmount = "Enter an amount to deposit.";
     }
 
     if (!formData.reference.trim()) {
@@ -114,27 +102,18 @@ export default function Deposit() {
     }
 
     setStatus("submitting");
+    setSubmitError("");
 
     try {
-      const transaction = await createTransaction({
-        type: "deposit",
-        direction: "credit",
-        accountId: activeAccount._id,
+      await depositFunds({
         amount: amountValue,
-        status: "pending",
+        bankName: formData.bankName,
+        source: formData.source,
+        accountHolder: formData.accountHolder,
+        accountNumber: formData.accountNumber,
         reference: formData.reference,
-        description: `Deposit from ${formData.bankName}`,
-        metadata: {
-          source: formData.source,
-          accountHolder: formData.accountHolder,
-          accountNumber: formData.accountNumber,
-          transferSpeed: formData.transferSpeed,
-        },
+        transferSpeed: formData.transferSpeed,
       });
-
-      window.setTimeout(() => {
-        settleTransaction(transaction._id, "completed").catch(() => {});
-      }, formData.transferSpeed === "priority" ? 3000 : 5000);
 
       const payoutWindow =
         formData.transferSpeed === "priority" ? "within 10 minutes" : "within 2 hours";
@@ -145,9 +124,17 @@ export default function Deposit() {
         reference: formData.reference,
         payoutWindow,
       });
+      setErrors({});
       setStatus("success");
     } catch (requestError) {
-      window.alert(requestError.response?.data?.error || requestError.message || "Deposit failed.");
+      const message =
+        requestError.response?.data?.error || requestError.message || "Deposit failed.";
+
+      setErrors((current) => ({
+        ...current,
+        depositAmount: current.depositAmount || message,
+      }));
+      setSubmitError(message);
       setStatus("idle");
     }
   };
@@ -156,8 +143,13 @@ export default function Deposit() {
     setStatus("idle");
     setReceipt(null);
     setErrors({});
+    setSubmitError("");
     setFormData(initialForm);
   };
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="dashboard-page">
@@ -177,20 +169,14 @@ export default function Deposit() {
                   <p className="action-page__eyebrow">Transactions</p>
                   <h1 className="action-page__title">Deposit</h1>
                   <p className="action-page__copy">
-                    Connect an existing bank account, choose how fast you want the
-                    transfer processed, and move money into NexBank with a guided flow.
+                    Connect an existing bank account, choose how fast you want the transfer
+                    processed, and move money into {selectedAccount.name}. Your first qualifying
+                    deposit activates the account and its system-issued physical card.
                   </p>
                 </div>
               </div>
 
-                <div className="action-workspace">
-                  {!activeAccount ? (
-                    <AccountRequiredState
-                      title="Select an account to make a deposit"
-                      copy="Deposits are account-scoped. Choose an account before creating a deposit."
-                    />
-                  ) : (
-                    <>
+              <div className="action-workspace">
                 <div className="action-workspace__main">
                   <section className="action-panel">
                     <div className="action-panel__header">
@@ -335,7 +321,10 @@ export default function Deposit() {
                     <div className="action-checklist">
                       <div className="action-checklist__item">
                         <FiLock size={16} />
-                        <span>Deposits are recorded on the backend ledger before settlement.</span>
+                        <span>
+                          Deposits update the account ledger centrally and can activate the account
+                          once minimum funding is met.
+                        </span>
                       </div>
                       <div className="action-checklist__item">
                         <FiClock size={16} />
@@ -346,7 +335,9 @@ export default function Deposit() {
                         <span>Once confirmed, the amount will appear in recent activity.</span>
                       </div>
                     </div>
-                    {error ? <small className="action-helper action-helper--error">{error}</small> : null}
+                    {submitError ? (
+                      <small className="action-helper action-helper--error">{submitError}</small>
+                    ) : null}
                   </section>
 
                   {status === "success" && receipt ? (
@@ -385,8 +376,6 @@ export default function Deposit() {
                     </section>
                   ) : null}
                 </aside>
-                    </>
-                  )}
               </div>
             </section>
           </div>

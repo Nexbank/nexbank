@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import "./styles/global.css";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -16,32 +16,41 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Insights from "./pages/Insights";
 import { AccountProvider } from "./context/AccountContext";
+import {
+  RedirectIfAuthenticated,
+  RequireAuth,
+  RequireSelectedAccount,
+} from "./components/RouteGuards";
 
 function App() {
   return (
     <AccountProvider>
       <Router>
         <Routes>
-          {/* Landing page */}
           <Route path="/" element={<LandingPage />} />
 
-          {/* Auth pages */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route element={<RedirectIfAuthenticated />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+          </Route>
 
-          {/* Main app pages */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/cards" element={<Cards />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/deposit" element={<Deposit />} />
-          <Route path="/withdraw" element={<Withdraw />} />
-          <Route path="/transfer" element={<Transfer />} />
-          <Route path="/pay-bills" element={<PayBills />} />
-          <Route path="/insights" element={<Insights />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route element={<RequireAuth />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/insights" element={<Insights />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+
+            <Route element={<RequireSelectedAccount />}>
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/cards" element={<Cards />} />
+              <Route path="/deposit" element={<Deposit />} />
+              <Route path="/withdraw" element={<Withdraw />} />
+              <Route path="/transfer" element={<Transfer />} />
+              <Route path="/pay-bills" element={<PayBills />} />
+            </Route>
+          </Route>
         </Routes>
       </Router>
     </AccountProvider>

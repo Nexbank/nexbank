@@ -6,9 +6,7 @@ import {
   FiDollarSign,
   FiShield,
   FiSmartphone,
-  FiZap,
 } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
@@ -49,16 +47,12 @@ const initialForm = {
 };
 
 export default function Withdraw() {
-  const { accounts, createTransaction, error, selectedAccountId, settleTransaction } =
-    useAccount();
+  const { selectedAccount, withdrawFunds } = useAccount();
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [receipt, setReceipt] = useState(null);
   const [status, setStatus] = useState("idle");
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
+  const [submitError, setSubmitError] = useState("");
 
   const amountValue = Number(formData.amount || 0);
   const formattedAmount = useMemo(() => formatCurrency(formData.amount), [formData.amount]);
@@ -67,16 +61,13 @@ export default function Withdraw() {
     const value = event.target.value;
     setFormData((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: "" }));
+    setSubmitError("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     const nextErrors = {};
-
-    if (!activeAccount) {
-      nextErrors.amount = "Load an active account before withdrawing.";
-    }
 
     if (!formData.beneficiaryName.trim()) {
       nextErrors.beneficiaryName = "Enter the beneficiary name.";
@@ -86,12 +77,8 @@ export default function Withdraw() {
       nextErrors.accountNumber = "Use 6 to 12 digits for the receiving account.";
     }
 
-    if (!amountValue || amountValue < 100) {
-      nextErrors.amount = "Withdraw at least R100.00.";
-    }
-
-    if (activeAccount && amountValue > activeAccount.availableBalance) {
-      nextErrors.amount = "This exceeds your available balance.";
+    if (!amountValue) {
+      nextErrors.amount = "Enter an amount to withdraw.";
     }
 
     if (!formData.note.trim()) {
@@ -104,28 +91,18 @@ export default function Withdraw() {
     }
 
     setStatus("submitting");
+    setSubmitError("");
 
     try {
-      const transaction = await createTransaction({
-        type: "withdrawal",
-        direction: "debit",
-        accountId: activeAccount._id,
+      await withdrawFunds({
         amount: amountValue,
-        status: "pending",
-        reference: formData.note,
-        description: `Withdrawal to ${formData.bankName}`,
-        metadata: {
-          payoutChannel: formData.payoutChannel,
-          bankName: formData.bankName,
-          beneficiaryName: formData.beneficiaryName,
-          accountNumber: formData.accountNumber,
-          accountType: formData.accountType,
-        },
+        bankName: formData.bankName,
+        payoutChannel: formData.payoutChannel,
+        beneficiaryName: formData.beneficiaryName,
+        accountNumber: formData.accountNumber,
+        accountType: formData.accountType,
+        note: formData.note,
       });
-
-      window.setTimeout(() => {
-        settleTransaction(transaction._id, "completed").catch(() => {});
-      }, formData.payoutChannel === "atm-code" ? 2500 : 4000);
 
       setReceipt({
         amount: formattedAmount,
@@ -136,11 +113,17 @@ export default function Withdraw() {
             ? "ready in under 5 minutes"
             : "sent within 60 minutes",
       });
+      setErrors({});
       setStatus("success");
     } catch (requestError) {
-      window.alert(
-        requestError.response?.data?.error || requestError.message || "Withdrawal failed."
-      );
+      const message =
+        requestError.response?.data?.error || requestError.message || "Withdrawal failed.";
+
+      setErrors((current) => ({
+        ...current,
+        amount: current.amount || message,
+      }));
+      setSubmitError(message);
       setStatus("idle");
     }
   };
@@ -149,8 +132,13 @@ export default function Withdraw() {
     setFormData(initialForm);
     setErrors({});
     setReceipt(null);
+    setSubmitError("");
     setStatus("idle");
   };
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="dashboard-page">
@@ -170,20 +158,13 @@ export default function Withdraw() {
                   <p className="action-page__eyebrow">Transactions</p>
                   <h1 className="action-page__title">Withdraw</h1>
                   <p className="action-page__copy">
-                    Send money out to an existing bank account, review the destination, and
-                    keep the payout flow secure and easy to follow.
+                    Send money out from {selectedAccount.name}, review the destination, and keep
+                    the payout flow secure and easy to follow.
                   </p>
                 </div>
               </div>
 
-                <div className="action-workspace">
-                  {!activeAccount ? (
-                    <AccountRequiredState
-                      title="Select an account to withdraw funds"
-                      copy="Withdrawals are account-scoped. Choose an account before starting a payout."
-                    />
-                  ) : (
-                    <>
+              <div className="action-workspace">
                 <div className="action-workspace__main">
                   <section className="action-panel">
                     <div className="action-panel__header">
@@ -288,10 +269,10 @@ export default function Withdraw() {
                         </label>
 
                         <label className="action-form__field">
-                          <span>Payment note</span>
+                          <span>Reference note</span>
                           <input
                             type="text"
-                            placeholder="Emergency cash, rent, supplier"
+                            placeholder="Why are you withdrawing?"
                             value={formData.note}
                             onChange={setField("note")}
                           />
@@ -300,15 +281,19 @@ export default function Withdraw() {
                       </div>
 
                       <div className="action-form__actions">
-                        <button type="button" className="action-button action-button--ghost">
-                          Save beneficiary
+                        <button
+                          type="button"
+                          className="action-button action-button--ghost"
+                          onClick={resetFlow}
+                        >
+                          Reset
                         </button>
                         <button
                           type="submit"
                           className="action-button action-button--primary action-button--blue"
                           disabled={status === "submitting"}
                         >
-                          {status === "submitting" ? "Sending..." : "Confirm withdrawal"}
+                          {status === "submitting" ? "Processing..." : "Confirm withdrawal"}
                         </button>
                       </div>
                     </form>
@@ -330,30 +315,32 @@ export default function Withdraw() {
                     <div className="action-checklist">
                       <div className="action-checklist__item">
                         <FiShield size={16} />
-                        <span>Beneficiary details are checked before the payout is released.</span>
+                        <span>Withdrawals are recorded before the payout status updates.</span>
                       </div>
                       <div className="action-checklist__item">
                         <FiClock size={16} />
-                        <span>Bank transfer withdrawals are typically processed within 60 minutes.</span>
+                        <span>Some payouts stay pending while the bank confirms the request.</span>
                       </div>
                       <div className="action-checklist__item">
                         <FiSmartphone size={16} />
-                        <span>You can later swap this for an OTP or popup approval flow.</span>
+                        <span>Cash code withdrawals are issued as short-lived collections.</span>
                       </div>
                     </div>
-                    {error ? <small className="action-helper action-helper--error">{error}</small> : null}
+                    {submitError ? (
+                      <small className="action-helper action-helper--error">{submitError}</small>
+                    ) : null}
                   </section>
 
                   {status === "success" && receipt ? (
                     <section className="action-panel action-panel--success">
                       <div className="action-success">
-                        <span className="action-success__icon action-success__icon--blue">
+                        <span className="action-success__icon">
                           <FiCheckCircle size={22} />
                         </span>
                         <div>
-                          <h2>Withdrawal queued</h2>
+                          <h2>Withdrawal requested</h2>
                           <p>
-                            {receipt.amount} for {receipt.beneficiaryName} at {receipt.bankName} is{" "}
+                            {receipt.amount} for {receipt.beneficiaryName} via {receipt.bankName} is{" "}
                             {receipt.eta}.
                           </p>
                         </div>
@@ -361,43 +348,25 @@ export default function Withdraw() {
 
                       <dl className="action-receipt">
                         <div>
-                          <dt>Channel</dt>
-                          <dd>
-                            {formData.payoutChannel === "atm-code"
-                              ? "Cash code payout"
-                              : "Existing bank account"}
-                          </dd>
+                          <dt>Account</dt>
+                          <dd>{selectedAccount.name}</dd>
                         </div>
                         <div>
                           <dt>Status</dt>
-                          <dd>Pending release</dd>
+                          <dd>Queued for settlement</dd>
                         </div>
                       </dl>
 
                       <button
                         type="button"
-                        className="action-button action-button--primary action-button--full action-button--blue"
+                        className="action-button action-button--primary action-button--full"
                         onClick={resetFlow}
                       >
-                        Start another withdrawal
+                        New withdrawal
                       </button>
                     </section>
                   ) : null}
-
-                  <section className="action-panel action-panel--tip">
-                    <div className="action-tip">
-                      <span className="action-tip__icon">
-                        <FiZap size={18} />
-                      </span>
-                      <p>
-                        If you want a popup later, this flow is already structured so the final
-                        submit step can become a modal confirmation without redesigning the page.
-                      </p>
-                    </div>
-                  </section>
                 </aside>
-                    </>
-                  )}
               </div>
             </section>
           </div>

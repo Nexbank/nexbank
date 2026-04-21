@@ -8,15 +8,10 @@ import {
   FiSmartphone,
   FiUser,
 } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
 import { formatCurrency } from "../utils/currency";
-
-const INTERNAL_LIMIT = 20000;
-const EXTERNAL_LIMIT = 10000;
-const VOUCHER_LIMIT = 3000;
 
 const bankOptions = [
   "Absa",
@@ -72,22 +67,16 @@ const initialForm = {
 const generateCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
 export default function Transfer() {
-  const { accounts, balance, createTransaction, selectedAccountId, settleTransaction } =
-    useAccount();
+  const { selectedAccount, transferFunds } = useAccount();
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [status, setStatus] = useState("idle");
   const [receipt, setReceipt] = useState(null);
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
 
   const amountValue = Number(formData.amount || 0);
   const formattedAmount = useMemo(() => formatCurrency(formData.amount), [formData.amount]);
   const selectedRoute = transferOptions.find((option) => option.id === formData.route);
-  const balanceAfterTransfer = formatCurrency(balance - amountValue);
 
   const steps = [
     { id: 1, label: "Route" },
@@ -104,31 +93,13 @@ export default function Transfer() {
 
   const validateStep = () => {
     const nextErrors = {};
-    const routeLimit =
-      formData.route === "internal"
-        ? activeAccount?.limits.transferInternal || INTERNAL_LIMIT
-        : formData.route === "external"
-          ? activeAccount?.limits.transferExternal || EXTERNAL_LIMIT
-          : activeAccount?.limits.voucher || VOUCHER_LIMIT;
-
-    if (!activeAccount) {
-      nextErrors.amount = "Load an active account before sending money.";
-    }
 
     if (!formData.beneficiaryName.trim()) {
       nextErrors.beneficiaryName = "Enter the beneficiary name.";
     }
 
-    if (!amountValue || amountValue < 10) {
-      nextErrors.amount = "Transfer at least R10.00.";
-    }
-
-    if (amountValue > balance) {
-      nextErrors.amount = "This exceeds your available balance.";
-    }
-
-    if (amountValue > routeLimit) {
-      nextErrors.amount = "This exceeds the limit for the selected route.";
+    if (!amountValue) {
+      nextErrors.amount = "Enter an amount to transfer.";
     }
 
     if (!formData.reference.trim()) {
@@ -139,7 +110,10 @@ export default function Transfer() {
       nextErrors.accountNumber = "Use 6 to 12 digits for the account number.";
     }
 
-    if (formData.route === "voucher" && !/^(?:\+27|0)\d{9}$/.test(formData.cellphone.replace(/\s/g, ""))) {
+    if (
+      formData.route === "voucher" &&
+      !/^(?:\+27|0)\d{9}$/.test(formData.cellphone.replace(/\s/g, ""))
+    ) {
       nextErrors.cellphone = "Use a valid South African cellphone number.";
     }
 
@@ -160,7 +134,7 @@ export default function Transfer() {
     setCurrentStep(1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep()) {
       setCurrentStep(2);
       return;
@@ -168,60 +142,49 @@ export default function Transfer() {
 
     setStatus("submitting");
 
-    window.setTimeout(async () => {
-      const transferId = `transfer-${Date.now()}`;
+    try {
+      await transferFunds({
+        amount: amountValue,
+        route: formData.route,
+        bankName: formData.bankName,
+        beneficiaryName: formData.beneficiaryName,
+        accountNumber: formData.accountNumber,
+        accountType: formData.accountType,
+        cellphone: formData.cellphone,
+        reference: formData.reference,
+        note: formData.note,
+        code: formData.code,
+      });
 
-      try {
-        await createTransaction({
-          id: transferId,
-          type: "transfer",
-          direction: "debit",
-          accountId: activeAccount._id,
-          amount: amountValue,
-          status: formData.route === "external" ? "pending" : "completed",
-          reference: formData.reference,
-          description:
-            formData.route === "voucher"
-              ? "Cash send voucher"
-              : formData.route === "internal"
-                ? "Nexbank transfer"
-                : "External bank transfer",
-          metadata: {
-            route: formData.route,
-            bankName: formData.bankName,
-            beneficiaryName: formData.beneficiaryName,
-            cellphone: formData.cellphone,
-            note: formData.note,
-          },
-        });
+      setReceipt({
+        amount: formattedAmount,
+        destination:
+          formData.route === "voucher"
+            ? `${formData.beneficiaryName} cash voucher`
+            : `${formData.beneficiaryName} at ${formData.bankName}`,
+        reference: formData.reference,
+        status:
+          formData.route === "internal"
+            ? "Completed"
+            : formData.route === "external"
+              ? "Pending settlement"
+              : "Voucher created",
+        code: formData.code,
+      });
+      setErrors({});
+      setStatus("success");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error ||
+        requestError.message ||
+        "Failed to send transfer.";
 
-        if (formData.route === "external") {
-          window.setTimeout(() => {
-            settleTransaction(transferId, "completed").catch(() => {});
-          }, 4500);
-        }
-
-        setReceipt({
-          amount: formattedAmount,
-          destination:
-            formData.route === "voucher"
-              ? `${formData.beneficiaryName} cash voucher`
-              : `${formData.beneficiaryName} at ${formData.bankName}`,
-          reference: formData.reference,
-          status:
-            formData.route === "internal"
-              ? "Completed"
-              : formData.route === "external"
-                ? "Pending settlement"
-                : "Voucher created",
-          code: formData.code,
-        });
-        setStatus("success");
-      } catch (error) {
-        window.alert(error.response?.data?.error || error.message || "Failed to send transfer.");
-        setStatus("idle");
-      }
-    }, 900);
+      setErrors((current) => ({
+        ...current,
+        amount: current.amount || message,
+      }));
+      setStatus("idle");
+    }
   };
 
   const resetFlow = () => {
@@ -231,6 +194,10 @@ export default function Transfer() {
     setReceipt(null);
     setCurrentStep(1);
   };
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="dashboard-page">
@@ -250,8 +217,8 @@ export default function Transfer() {
                   <p className="action-page__eyebrow">Payments</p>
                   <h1 className="action-page__title">Transfer</h1>
                   <p className="action-page__copy">
-                    Choose who you want to pay, enter the details, and check everything before
-                    you send the money.
+                    Choose who you want to pay from {selectedAccount.name}, enter the details, and
+                    check everything before you send the money.
                   </p>
                 </div>
               </div>
@@ -270,13 +237,6 @@ export default function Transfer() {
               </div>
 
               <div className="action-workspace">
-                {!activeAccount ? (
-                  <AccountRequiredState
-                    title="Select an account to send money"
-                    copy="Transfers are account-scoped. Choose an account before creating a transfer."
-                  />
-                ) : (
-                  <>
                 <div className="action-workspace__main">
                   <section className="action-panel">
                     <div className="action-panel__header">
@@ -341,7 +301,7 @@ export default function Transfer() {
                         <small className="action-helper action-helper--error">{errors.amount}</small>
                       ) : (
                         <small className="action-helper">
-                          Available: {formatCurrency(balance)}.
+                          Available: {formatCurrency(selectedAccount.availableBalance)}.
                         </small>
                       )}
 
@@ -513,8 +473,8 @@ export default function Transfer() {
                           <strong>{formattedAmount}</strong>
                         </div>
                         <div className="action-detail-row">
-                          <span>Balance after transfer</span>
-                          <strong>{balanceAfterTransfer}</strong>
+                          <span>Available balance</span>
+                          <strong>{formatCurrency(selectedAccount.availableBalance)}</strong>
                         </div>
                       </div>
 
@@ -563,15 +523,15 @@ export default function Transfer() {
                         </span>
                         <div>
                           <p className="action-summary__label">From</p>
-                          <strong className="action-review-card__title">{activeAccount.name}</strong>
+                          <strong className="action-review-card__title">{selectedAccount.name}</strong>
                         </div>
                       </div>
                       <div className="action-review-card__amount">
-                        {formatCurrency(balance)}
+                        {formatCurrency(selectedAccount.availableBalance)}
                       </div>
                       <div className="action-review-card__meta">
                         <span>Account type</span>
-                        <strong>{activeAccount.accountType}</strong>
+                        <strong>{selectedAccount.accountType}</strong>
                       </div>
                     </div>
 
@@ -630,8 +590,6 @@ export default function Transfer() {
                     </section>
                   ) : null}
                 </aside>
-                  </>
-                )}
               </div>
             </section>
           </div>

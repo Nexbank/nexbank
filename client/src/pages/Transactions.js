@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import AccountRequiredState from "../components/AccountRequiredState";
-import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import Sidebar from "../components/Sidebar";
 import TransactionList from "../components/TransactionList";
 import { useAccount } from "../context/AccountContext";
 
@@ -30,15 +29,11 @@ const resolveTransactionCardType = (transaction) =>
 export default function Transactions() {
   const [search, setSearch] = useState("");
   const [cardFilter, setCardFilter] = useState("all");
-  const { accounts, selectedAccountId, transactions } = useAccount();
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
+  const { selectedAccount, selectedTransactions } = useAccount();
 
   const visibleTransactions = useMemo(
     () =>
-      transactions.filter((transaction) => {
+      selectedTransactions.filter((transaction) => {
         const query = search.toLowerCase();
         const matchesSearch =
           (transaction.description || "").toLowerCase().includes(query) ||
@@ -51,8 +46,12 @@ export default function Transactions() {
 
         return matchesSearch && matchesCardFilter;
       }),
-    [cardFilter, search, transactions]
+    [cardFilter, search, selectedTransactions]
   );
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="app">
@@ -62,37 +61,33 @@ export default function Transactions() {
         <Navbar search={search} setSearch={setSearch} />
 
         <div className="content">
-          {!activeAccount ? (
-            <AccountRequiredState
-              title="Select an account to view transactions"
-              copy="Transactions are account-scoped. Choose an account before viewing activity."
-            />
-          ) : (
-            <>
-              <h2>{activeAccount.name} Transactions</h2>
-              <div className="d-flex gap-2 flex-wrap mb-3">
-                {[
-                  { label: "All", value: "all" },
-                  { label: "Virtual Card", value: "virtual" },
-                  { label: "Physical Card", value: "physical" },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`action-button ${
-                      cardFilter === option.value
-                        ? "action-button--primary"
-                        : "action-button--ghost"
-                    }`}
-                    onClick={() => setCardFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <TransactionList transactions={visibleTransactions} />
-            </>
-          )}
+          <h2>{selectedAccount.name} Transactions</h2>
+          <p className="action-helper">
+            Every transaction shown here belongs to your currently selected account.
+          </p>
+
+          <div className="d-flex gap-2 flex-wrap mb-3">
+            {[
+              { label: "All", value: "all" },
+              { label: "Virtual Card", value: "virtual" },
+              { label: "Physical Card", value: "physical" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`action-button ${
+                  cardFilter === option.value
+                    ? "action-button--primary"
+                    : "action-button--ghost"
+                }`}
+                onClick={() => setCardFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <TransactionList transactions={visibleTransactions} />
         </div>
       </div>
     </div>

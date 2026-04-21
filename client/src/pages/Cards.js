@@ -8,10 +8,10 @@ import {
   FiX,
   FiZap,
 } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
+import { formatCurrency } from "../utils/currency";
 
 const normalizeCardType = (value = "") => {
   const normalized = String(value).trim().toLowerCase();
@@ -44,8 +44,6 @@ const defaultSettings = [
     field: "atmWithdrawalsEnabled",
   },
 ];
-
-const cardTypeOptions = ["Virtual Card", "Physical Card"];
 
 const formatExpiry = (value) => {
   if (!value) {
@@ -110,42 +108,35 @@ function CardTile({ accountName, card, isSelected, onSelect }) {
 }
 
 export default function Cards() {
-  const { accounts, cards, createCard, selectedAccountId, isLoading } = useAccount();
+  const { selectedAccount, selectedCards, createCard, isLoading } = useAccount();
   const [selectedCardId, setSelectedCardId] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState({
-    cardType: "Virtual Card",
-  });
-
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
 
   const { virtualCard, physicalCard, visibleCards } = useMemo(() => {
-    const sortedCards = [...cards].sort(
+    const sortedCards = [...selectedCards].sort(
       (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
     );
+    const resolvedPhysicalCard =
+      sortedCards.find((card) => normalizeCardType(card.cardType || card.type) === "physical") ||
+      null;
+    const resolvedVirtualCard =
+      sortedCards.find((card) => normalizeCardType(card.cardType || card.type) === "virtual") ||
+      null;
 
     return {
-      virtualCard: sortedCards.find(
-        (card) => normalizeCardType(card.cardType || card.type) === "virtual"
-      ) || null,
-      physicalCard: sortedCards.find(
-        (card) => normalizeCardType(card.cardType || card.type) === "physical"
-      ) || null,
-      visibleCards: sortedCards,
+      virtualCard: resolvedVirtualCard,
+      physicalCard: resolvedPhysicalCard,
+      visibleCards: [resolvedPhysicalCard, resolvedVirtualCard].filter(Boolean),
     };
-  }, [cards]);
+  }, [selectedCards]);
 
   const canCreateVirtual = !virtualCard;
-  const canCreatePhysical = !physicalCard;
   const selectedCard =
-    [virtualCard, physicalCard].find((card) => card?._id === selectedCardId) ||
-    virtualCard ||
+    [physicalCard, virtualCard].find((card) => card?._id === selectedCardId) ||
     physicalCard ||
+    virtualCard ||
     null;
 
   const cardSettings = useMemo(() => {
@@ -160,34 +151,29 @@ export default function Cards() {
   }, [selectedCard]);
 
   const openCreateModal = () => {
-    setFormData({
-      cardType: canCreateVirtual ? "Virtual Card" : "Physical Card",
-    });
     setError("");
     setIsCreateOpen(true);
-  };
-
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
   };
 
   const handleCreateCard = async (event) => {
     event.preventDefault();
 
-    if (!activeAccount) {
+    if (!selectedAccount) {
       setError("Choose an account first.");
       return;
     }
 
-    if (
-      (formData.cardType === "Virtual Card" && !canCreateVirtual) ||
-      (formData.cardType === "Physical Card" && !canCreatePhysical)
-    ) {
-      setError("This account already has that card type.");
+    if (!selectedAccount.isActive) {
+      setError(
+        `Fund this account with at least ${formatCurrency(
+          selectedAccount.minimumFundingAmount
+        )} before creating a virtual card.`
+      );
+      return;
+    }
+
+    if (!canCreateVirtual) {
+      setError("This account already has a virtual card.");
       return;
     }
 
@@ -195,17 +181,20 @@ export default function Cards() {
       setIsSubmitting(true);
       setError("");
       const createdCard = await createCard({
-        accountId: activeAccount._id,
-        cardType: formData.cardType,
+        cardType: "Virtual Card",
       });
       setSelectedCardId(createdCard._id);
       setIsCreateOpen(false);
     } catch (requestError) {
-      setError(requestError.response?.data?.error || "Failed to create card.");
+      setError(requestError.response?.data?.error || requestError.message || "Failed to create card.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!selectedAccount) {
+    return null;
+  }
 
   return (
     <div className="dashboard-page">
@@ -221,69 +210,62 @@ export default function Cards() {
                 <div>
                   <h1 className="cards-title">Cards</h1>
                   <p className="action-helper">
-                    {activeAccount
-                      ? `Showing cards linked to ${activeAccount.name}.`
-                      : "Choose an account before managing cards."}
+                    Showing the system-issued physical card for {selectedAccount.name}. A virtual
+                    card can be added once after the account is activated.
                   </p>
                 </div>
 
                 <div className="d-flex gap-3 align-items-center flex-wrap">
                   <span className="action-state-badge action-state-badge--pending">
-                    {activeAccount
-                      ? `Active account: ${activeAccount.accountType}`
-                      : "No active account"}
+                    {selectedAccount.isActive
+                      ? `${selectedAccount.accountType} account active`
+                      : `Inactive until ${formatCurrency(
+                          selectedAccount.minimumFundingAmount
+                        )} is funded`}
                   </span>
                   <button
                     type="button"
                     className="cards-add-button"
                     onClick={openCreateModal}
-                    disabled={!activeAccount || (!canCreateVirtual && !canCreatePhysical)}
+                    disabled={!selectedAccount.isActive || !canCreateVirtual}
                   >
                     <FiPlus size={18} />
-                    {canCreateVirtual || canCreatePhysical ? "Add Card" : "Card Limit Reached"}
+                    {!selectedAccount.isActive
+                      ? "Activate Account First"
+                      : canCreateVirtual
+                        ? "Create Virtual Card"
+                        : "Virtual Card Added"}
                   </button>
                 </div>
               </div>
 
-              {!activeAccount ? (
-                <AccountRequiredState
-                  title="Select an account to manage cards"
-                  copy="Cards are account-scoped. Choose an account before viewing or creating cards."
-                />
-              ) : isLoading ? (
+              {isLoading ? (
                 <article className="dashboard-empty-state">
                   <p className="dashboard-empty-title">Loading cards...</p>
                 </article>
-              ) : !virtualCard && !physicalCard ? (
+              ) : !physicalCard ? (
                 <article className="dashboard-empty-state">
-                  <p className="dashboard-empty-title">No cards for this account</p>
+                  <p className="dashboard-empty-title">Physical card unavailable</p>
                   <p className="dashboard-empty-copy">
-                    Create a card for this account or switch accounts first.
+                    Every approved user should already have a system-issued physical card linked to
+                    the current account.
                   </p>
-                  <button
-                    type="button"
-                    className="cards-add-button mt-3"
-                    onClick={openCreateModal}
-                  >
-                    <FiPlus size={18} />
-                    Create First Card
-                  </button>
                 </article>
               ) : (
                 <div className="row g-4">
-                  {virtualCard ? (
+                  {physicalCard ? (
                     <CardTile
-                      accountName={activeAccount.name}
-                      card={virtualCard}
-                      isSelected={selectedCard?._id === virtualCard._id}
+                      accountName={selectedAccount.name}
+                      card={physicalCard}
+                      isSelected={selectedCard?._id === physicalCard._id}
                       onSelect={setSelectedCardId}
                     />
                   ) : null}
-                  {physicalCard ? (
+                  {virtualCard ? (
                     <CardTile
-                      accountName={activeAccount.name}
-                      card={physicalCard}
-                      isSelected={selectedCard?._id === physicalCard._id}
+                      accountName={selectedAccount.name}
+                      card={virtualCard}
+                      isSelected={selectedCard?._id === virtualCard._id}
                       onSelect={setSelectedCardId}
                     />
                   ) : null}
@@ -321,16 +303,18 @@ export default function Cards() {
 
                 <div className="cards-security-note">
                   <FiGlobe size={15} />
-                  {selectedCard && activeAccount
-                    ? `This card is linked to ${activeAccount.name}. Locked cards remain visible but unusable.`
-                    : "Select an account card to inspect its controls."}
+                  {selectedCard
+                    ? selectedAccount.isActive
+                      ? `This card gives access to ${selectedAccount.name}. Cards do not hold money independently of the account.`
+                      : `This physical card is linked to ${selectedAccount.name} and will activate after minimum funding is met.`
+                    : "Select a card to inspect its controls."}
                 </div>
 
-                {selectedCard && activeAccount ? (
+                {selectedCard ? (
                   <div className="action-checklist mt-3">
                     <div className="action-checklist__item">
                       <FiCreditCard size={16} />
-                      <span>Linked account: {activeAccount.accountNumber}</span>
+                      <span>Linked account: {selectedAccount.accountNumber}</span>
                     </div>
                     <div className="action-checklist__item">
                       <FiLock size={16} />
@@ -340,7 +324,7 @@ export default function Cards() {
                           ? "Locked"
                           : selectedCard.isActive
                             ? "Active"
-                            : "Inactive"}
+                            : "Inactive until funding"}
                       </span>
                     </div>
                     <div className="action-checklist__item">
@@ -380,11 +364,11 @@ export default function Cards() {
               <div className="cards-modal-header">
                 <div>
                   <h2 id="create-card-title" className="cards-modal-title">
-                    Create a new card
+                    Create a virtual card
                   </h2>
                   <p className="cards-modal-copy">
-                    The new card will be linked to the active account. Switch accounts first if
-                    you want to create a card elsewhere.
+                    Your physical card was already issued by the system. This flow only adds the
+                    one allowed virtual card for {selectedAccount.name} after activation.
                   </p>
                 </div>
 
@@ -400,28 +384,8 @@ export default function Cards() {
 
               <form className="cards-form row g-3" onSubmit={handleCreateCard}>
                 <div className="col-12">
-                  <label className="cards-form-label" htmlFor="card-type">
-                    Card type
-                  </label>
-                  <select
-                    id="card-type"
-                    name="cardType"
-                    className="form-select cards-form-control"
-                    value={formData.cardType}
-                    onChange={handleInputChange}
-                  >
-                    {cardTypeOptions.map((option) => {
-                      const isDisabled =
-                        (option === "Virtual Card" && !canCreateVirtual) ||
-                        (option === "Physical Card" && !canCreatePhysical);
-
-                      return (
-                        <option key={option} value={option} disabled={isDisabled}>
-                          {isDisabled ? `${option} (Already exists)` : option}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <label className="cards-form-label">Card type</label>
+                  <div className="cards-form-control">Virtual Card</div>
                 </div>
 
                 {error ? (
@@ -440,7 +404,7 @@ export default function Cards() {
                     Cancel
                   </button>
                   <button type="submit" className="cards-form-submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Creating..." : "Create Card"}
+                    {isSubmitting ? "Creating..." : "Create Virtual Card"}
                   </button>
                 </div>
               </form>

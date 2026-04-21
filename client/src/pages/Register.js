@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
+import { useNotification } from "../components/Notification";
 
 function Register() {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [form, setForm] = useState({
     firstname: "",
     surname: "",
@@ -16,12 +18,12 @@ function Register() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (event) => {
+    setForm({ ...form, [event.target.name]: event.target.value });
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const handleRegister = async (event) => {
+    event.preventDefault();
 
     if (
       !form.firstname ||
@@ -32,19 +34,30 @@ function Register() {
       !form.address ||
       !form.password
     ) {
-      alert("Please fill all required fields.");
+      showNotification("warning", "Please complete every required registration field.", {
+        title: "Incomplete Registration",
+      });
       return;
     }
 
     if (form.id.length !== 13 || Number.isNaN(Number(form.id))) {
-      alert("SA ID must be exactly 13 digits.");
+      showNotification("error", "South African ID numbers must contain exactly 13 digits.", {
+        title: "Invalid ID Number",
+      });
       return;
     }
 
     if (form.password !== form.confirm) {
-      alert("Passwords do not match.");
+      showNotification("error", "Your password confirmation does not match.", {
+        title: "Password Mismatch",
+      });
       return;
     }
+
+    showNotification("info", "Creating your NexBank profile and preparing your onboarding journey.", {
+      title: "Registration In Progress",
+      duration: 2200,
+    });
 
     try {
       setIsSubmitting(true);
@@ -59,7 +72,15 @@ function Register() {
         password: form.password,
       });
 
-      alert("Registration successful! Please login.");
+      showNotification("success", "Your account has been created. You can log in now.", {
+        title: "Registration Successful",
+      });
+
+      showNotification("warning", "Keep your login details private and enable extra security after signing in.", {
+        title: "Security Tip",
+        duration: 6500,
+      });
+
       navigate("/login");
     } catch (error) {
       const message =
@@ -67,7 +88,9 @@ function Register() {
         error.response?.data?.message ||
         "Registration failed. Please try again.";
 
-      alert(message);
+      showNotification("error", message, {
+        title: "Registration Failed",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -80,12 +103,11 @@ function Register() {
           <div className="auth-panel-frame">
             <div className="auth-panel-glow" />
             <div className="auth-card auth-card--wide">
-              {/* Logo with slogan */}
               <div className="auth-logo-container text-center">
                 <div className="auth-logo-wrapper">
-                  <img 
-                    src="/NexBank-logo.png" 
-                    alt="NexBank Logo" 
+                  <img
+                    src="/NexBank-logo.png"
+                    alt="NexBank Logo"
                     className="auth-logo"
                   />
                   <span className="auth-slogan">Your money simplified</span>

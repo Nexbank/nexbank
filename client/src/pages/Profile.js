@@ -3,28 +3,25 @@ import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import { useNotification } from "../components/Notification";
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
 
-  // State for user information
   const [userInfo, setUserInfo] = useState({
     email: "nicholatenozwole@gmail.com",
     phone: "+27 82 123 4567",
     location: "Johannesburg, South Africa",
   });
 
-  // State for edit mode
   const [isEditing, setIsEditing] = useState(false);
-
-  // Temporary state for form inputs while editing
   const [editForm, setEditForm] = useState({
     email: userInfo.email,
     phone: userInfo.phone,
     location: userInfo.location,
   });
 
-  // State for preferences
   const [preferences, setPreferences] = useState({
     twoFactor: true,
     pushNotifications: true,
@@ -40,8 +37,8 @@ const Profile = () => {
     setIsEditing(true);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
     setEditForm((prev) => ({
       ...prev,
       [name]: value,
@@ -51,25 +48,60 @@ const Profile = () => {
   const handleSave = () => {
     setUserInfo({ ...editForm });
     setIsEditing(false);
-    alert("Profile information updated successfully!");
+    showNotification("success", "Profile information updated successfully.", {
+      title: "Profile Updated",
+    });
   };
 
   const handleCancel = () => {
     setIsEditing(false);
+    showNotification("info", "Profile changes were discarded.", {
+      title: "Edit Cancelled",
+      duration: 3200,
+    });
   };
 
   const toggleTwoFactor = () => {
-    setPreferences((prev) => ({
-      ...prev,
-      twoFactor: !prev.twoFactor,
-    }));
+    setPreferences((prev) => {
+      const nextValue = !prev.twoFactor;
+
+      showNotification(
+        nextValue ? "warning" : "info",
+        nextValue
+          ? "Two-factor authentication has been enabled for stronger account protection."
+          : "Two-factor authentication has been disabled. Your account is less protected.",
+        {
+          title: nextValue ? "Security Upgraded" : "Security Changed",
+          duration: 6500,
+        }
+      );
+
+      return {
+        ...prev,
+        twoFactor: nextValue,
+      };
+    });
   };
 
   const toggleNotifications = () => {
-    setPreferences((prev) => ({
-      ...prev,
-      pushNotifications: !prev.pushNotifications,
-    }));
+    setPreferences((prev) => {
+      const nextValue = !prev.pushNotifications;
+
+      showNotification(
+        nextValue ? "success" : "info",
+        nextValue
+          ? "Push notifications are enabled. You will receive account alerts again."
+          : "Push notifications are paused. Critical security alerts should still be reviewed regularly.",
+        {
+          title: nextValue ? "Notifications Enabled" : "Notifications Paused",
+        }
+      );
+
+      return {
+        ...prev,
+        pushNotifications: nextValue,
+      };
+    });
   };
 
   const handleLanguageChange = () => {
@@ -82,11 +114,16 @@ const Profile = () => {
     ];
     const currentIndex = languages.indexOf(preferences.language);
     const nextIndex = (currentIndex + 1) % languages.length;
+    const nextLanguage = languages[nextIndex];
 
     setPreferences((prev) => ({
       ...prev,
-      language: languages[nextIndex],
+      language: nextLanguage,
     }));
+
+    showNotification("info", `App language switched to ${nextLanguage}.`, {
+      title: "Language Updated",
+    });
   };
 
   return (
@@ -96,17 +133,14 @@ const Profile = () => {
       <div className="main">
         <Navbar />
 
-        {/* 🔥 THIS FIXES YOUR SCROLL ISSUE */}
         <div className="content">
           <div className="profile-container">
-
-            {/* Header */}
             <div className="profile-header">
               <button
                 onClick={handleBackToDashboard}
                 className="profile-back-btn"
               >
-                ←
+                Back
               </button>
 
               <div className="profile-avatar">
@@ -121,10 +155,7 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="profile-content">
-
-              {/* Personal Info */}
               <div className="profile-section">
                 <h2>Personal Information</h2>
 
@@ -206,7 +237,6 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* Preferences */}
               <div className="profile-section">
                 <h2>Account Preferences</h2>
 
@@ -259,7 +289,6 @@ const Profile = () => {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>

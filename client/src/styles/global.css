@@ -4193,3 +4193,316 @@ body {
     max-width: calc(100% - 32px) !important;
   }
 }
+
+/* =========================
+   FRONTEND NOTIFICATIONS
+========================= */
+
+.notification-stack {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1600;
+  width: min(380px, calc(100vw - 28px));
+  display: grid;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.notification-toast {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 16px 15px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(17, 17, 17, 0.98), rgba(10, 10, 10, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+  animation: notificationEnter 0.28s ease;
+}
+
+.notification-toast--success {
+  border-color: rgba(0, 200, 122, 0.24);
+}
+
+.notification-toast--error {
+  border-color: rgba(255, 77, 77, 0.28);
+}
+
+.notification-toast--info {
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.notification-toast--warning {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.notification-toast__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notification-toast--success .notification-toast__icon {
+  color: #2de59f;
+  background: rgba(0, 200, 122, 0.12);
+}
+
+.notification-toast--error .notification-toast__icon {
+  color: #ff6f6f;
+  background: rgba(255, 77, 77, 0.12);
+}
+
+.notification-toast--info .notification-toast__icon {
+  color: #6ea8ff;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.notification-toast--warning .notification-toast__icon {
+  color: #f8bb4f;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.notification-toast__content {
+  min-width: 0;
+}
+
+.notification-toast__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.notification-toast__title {
+  color: #f4fff9;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.notification-toast__time {
+  color: #809286;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.notification-toast__message {
+  margin: 0;
+  color: #c1d0c7;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.notification-toast__close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #8ea499;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.notification-toast__close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #effff7;
+}
+
+.navbar__notification-item--empty {
+  text-align: left;
+}
+
+@keyframes notificationEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* =========================
+   ACTION PAGE FORMS
+========================= */
+
+.action-card {
+  margin-top: 28px;
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(17, 17, 17, 0.98), rgba(10, 10, 10, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 26px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.action-form {
+  display: grid;
+  gap: 18px;
+}
+
+.action-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.action-form__field {
+  display: grid;
+  gap: 8px;
+  color: #d3e0d9;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.action-form__control {
+  width: 100%;
+  min-height: 52px;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(132, 160, 145, 0.2);
+  background: rgba(245, 255, 250, 0.04);
+  color: #f6fffb;
+}
+
+.action-form__control:focus {
+  outline: none;
+  border-color: rgba(89, 255, 173, 0.68);
+  box-shadow: 0 0 0 0.18rem rgba(0, 200, 122, 0.16);
+}
+
+.action-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.action-card__button {
+  min-width: 180px;
+  min-height: 50px;
+  border: none;
+  border-radius: 16px;
+  padding: 0 22px;
+  background: linear-gradient(135deg, #0fce83, #5bffad);
+  color: #03140b;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 18px 34px rgba(0, 200, 122, 0.2);
+}
+
+.action-card__button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.action-card__section + .action-card__section {
+  margin-top: 22px;
+}
+
+.action-card__label {
+  margin: 0 0 12px;
+  color: #8ea499;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.action-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.action-choice-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #dbe8e2;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+}
+
+.action-choice-card--active {
+  border-color: rgba(0, 200, 122, 0.36);
+  background: rgba(0, 200, 122, 0.1);
+}
+
+.action-choice-card strong {
+  color: #f4fff9;
+  font-size: 1rem;
+}
+
+.action-choice-card span {
+  color: #88f2bf;
+  font-weight: 700;
+}
+
+.action-card__summary {
+  margin-top: 24px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.action-card__summary h2 {
+  margin: 0 0 8px;
+  color: #f4fff9;
+  font-size: 1.35rem;
+}
+
+.action-card__copy {
+  margin: 0;
+  color: #a5b9af;
+}
+
+.action-card__amount {
+  color: #72f0b7;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
+@media (max-width: 768px) {
+  .notification-stack {
+    top: 16px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+  }
+
+  .action-card {
+    padding: 20px;
+  }
+
+  .action-form__grid,
+  .action-card__summary {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .action-card__actions {
+    justify-content: stretch;
+  }
+
+  .action-card__button {
+    width: 100%;
+  }
+}

@@ -1,37 +1,38 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useNotification } from "../components/Notification";
 
 const recoverySteps = [
   {
     title: "Step 1",
     heading: "Confirm your South African ID",
     description:
-      "Enter the 13-digit ID number linked to your NexBank profile so we can verify your identity."
+      "Enter the 13-digit ID number linked to your NexBank profile so we can verify your identity.",
   },
   {
     title: "Step 2",
     heading: "Verify your cellphone number",
     description:
-      "We send a one-time PIN to the cellphone number on your account before you can continue."
+      "We send a one-time PIN to the cellphone number on your account before you can continue.",
   },
   {
     title: "Step 3",
     heading: "Verify your email address",
     description:
-      "A second code is sent to your registered email for added account protection."
+      "A second code is sent to your registered email for added account protection.",
   },
   {
     title: "Step 4",
     heading: "Confirm your bank card",
     description:
-      "Enter the last 4 digits of your NexBank card so we know it is really you."
+      "Enter the last 4 digits of your NexBank card so we know it is really you.",
   },
   {
     title: "Step 5",
     heading: "Create your new password",
     description:
-      "Choose a strong new password, confirm it, and return to login securely."
-  }
+      "Choose a strong new password, confirm it, and return to login securely.",
+  },
 ];
 
 function ForgotPassword() {
@@ -100,6 +101,15 @@ function ForgotPassword() {
 }
 
 function ForgotPasswordGuide({ onStart }) {
+  const { showNotification } = useNotification();
+
+  const handleStart = () => {
+    showNotification("info", "We will walk you through identity checks before changing your password.", {
+      title: "Recovery Started",
+    });
+    onStart();
+  };
+
   return (
     <>
       <div className="auth-card-header">
@@ -122,7 +132,7 @@ function ForgotPasswordGuide({ onStart }) {
         ))}
       </div>
 
-      <button className="btn auth-primary-btn w-100" type="button" onClick={onStart}>
+      <button className="btn auth-primary-btn w-100" type="button" onClick={handleStart}>
         Continue to Recovery
       </button>
 
@@ -135,12 +145,19 @@ function ForgotPasswordGuide({ onStart }) {
 
 function StepID({ next }) {
   const [id, setId] = useState("");
+  const { showNotification } = useNotification();
 
   const handleNext = () => {
     if (id.length !== 13 || Number.isNaN(Number(id))) {
-      alert("SA ID must be exactly 13 digits.");
+      showNotification("error", "South African ID numbers must contain exactly 13 digits.", {
+        title: "Invalid ID Number",
+      });
       return;
     }
+
+    showNotification("success", "Identity number verified. Continue to mobile confirmation.", {
+      title: "ID Verified",
+    });
     next();
   };
 
@@ -161,7 +178,7 @@ function StepID({ next }) {
           className="form-control auth-control"
           placeholder="Enter your 13-digit ID number"
           value={id}
-          onChange={(e) => setId(e.target.value)}
+          onChange={(event) => setId(event.target.value)}
         />
       </div>
 
@@ -176,21 +193,33 @@ function StepPhone({ next }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const { showNotification } = useNotification();
 
   const sendOTP = () => {
     if (!phoneNumber || phoneNumber.length < 10) {
-      alert("Please enter a valid cellphone number.");
+      showNotification("error", "Please enter a valid cellphone number.", {
+        title: "Invalid Cellphone Number",
+      });
       return;
     }
-    alert(`OTP sent to ${phoneNumber} (simulation).`);
+
+    showNotification("warning", `A one-time PIN has been sent to ${phoneNumber} in this demo flow.`, {
+      title: "Security Check",
+    });
     setOtpSent(true);
   };
 
   const handleVerify = () => {
     if (!otp) {
-      alert("Please enter the OTP.");
+      showNotification("error", "Please enter the one-time PIN.", {
+        title: "OTP Required",
+      });
       return;
     }
+
+    showNotification("success", "Cellphone verification complete.", {
+      title: "Number Verified",
+    });
     next();
   };
 
@@ -214,7 +243,7 @@ function StepPhone({ next }) {
               type="tel"
               placeholder="Enter your cellphone number"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={(event) => setPhoneNumber(event.target.value)}
             />
           </div>
 
@@ -234,7 +263,7 @@ function StepPhone({ next }) {
               className="form-control auth-control"
               placeholder="Enter OTP"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(event) => setOtp(event.target.value)}
             />
           </div>
 
@@ -251,21 +280,33 @@ function StepEmail({ next }) {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const { showNotification } = useNotification();
 
   const sendOTP = () => {
     if (!email || !email.includes("@")) {
-      alert("Please enter a valid email address.");
+      showNotification("error", "Please enter a valid email address.", {
+        title: "Invalid Email Address",
+      });
       return;
     }
-    alert(`OTP sent to ${email} (simulation).`);
+
+    showNotification("warning", `A verification code has been sent to ${email} in this demo flow.`, {
+      title: "Email Security Check",
+    });
     setOtpSent(true);
   };
 
   const handleVerify = () => {
     if (!otp) {
-      alert("Please enter the OTP.");
+      showNotification("error", "Please enter the email verification code.", {
+        title: "OTP Required",
+      });
       return;
     }
+
+    showNotification("success", "Email verification complete.", {
+      title: "Email Verified",
+    });
     next();
   };
 
@@ -289,7 +330,7 @@ function StepEmail({ next }) {
               type="email"
               placeholder="Enter your email address"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
             />
           </div>
 
@@ -309,7 +350,7 @@ function StepEmail({ next }) {
               className="form-control auth-control"
               placeholder="Enter OTP"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(event) => setOtp(event.target.value)}
             />
           </div>
 
@@ -324,12 +365,19 @@ function StepEmail({ next }) {
 
 function StepCard({ next }) {
   const [card, setCard] = useState("");
+  const { showNotification } = useNotification();
 
   const handleNext = () => {
     if (card.length !== 4 || Number.isNaN(Number(card))) {
-      alert("Enter the last 4 digits of your card.");
+      showNotification("error", "Enter the last 4 digits of your card.", {
+        title: "Invalid Card Details",
+      });
       return;
     }
+
+    showNotification("success", "Card confirmation completed.", {
+      title: "Card Verified",
+    });
     next();
   };
 
@@ -351,7 +399,7 @@ function StepCard({ next }) {
           placeholder="Last 4 digits of your card"
           maxLength="4"
           value={card}
-          onChange={(e) => setCard(e.target.value)}
+          onChange={(event) => setCard(event.target.value)}
         />
       </div>
 
@@ -364,21 +412,28 @@ function StepCard({ next }) {
 
 function StepPassword({ reset }) {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
 
   const handleReset = () => {
     if (pass.length < 6) {
-      alert("Password must be at least 6 characters.");
+      showNotification("error", "Password must be at least 6 characters.", {
+        title: "Weak Password",
+      });
       return;
     }
 
     if (pass !== confirm) {
-      alert("Passwords do not match.");
+      showNotification("error", "Passwords do not match.", {
+        title: "Password Mismatch",
+      });
       return;
     }
 
-    alert("Password reset successful. Please login with your new password.");
+    showNotification("success", "Your password has been reset. Please log in again.", {
+      title: "Password Reset Successful",
+    });
     reset();
     navigate("/login");
   };
@@ -401,7 +456,7 @@ function StepPassword({ reset }) {
           type="password"
           placeholder="New password"
           value={pass}
-          onChange={(e) => setPass(e.target.value)}
+          onChange={(event) => setPass(event.target.value)}
         />
       </div>
 
@@ -415,7 +470,7 @@ function StepPassword({ reset }) {
           type="password"
           placeholder="Confirm new password"
           value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
+          onChange={(event) => setConfirm(event.target.value)}
         />
       </div>
 

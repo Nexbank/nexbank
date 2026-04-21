@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import { useNotification } from "../components/Notification";
 
 const DEFAULT_SETTINGS_STATE = {
   biometric: true,
@@ -43,11 +44,8 @@ function SettingRow({ icon, title, subtitle, toggle, onToggle, chevron, onClick 
         <div className="setting-subtitle">{subtitle}</div>
       </div>
 
-      {toggle !== undefined && (
-        <Toggle on={toggle} onToggle={onToggle} />
-      )}
-
-      {chevron && <span className="setting-chevron">⚙️</span>}
+      {toggle !== undefined && <Toggle on={toggle} onToggle={onToggle} />}
+      {chevron && <span className="setting-chevron">Open</span>}
     </div>
   );
 }
@@ -62,6 +60,7 @@ function Section({ label, children }) {
 }
 
 export default function SettingsPage() {
+  const { showNotification } = useNotification();
   const [s, setS] = useState(DEFAULT_SETTINGS_STATE);
   const [settingsMeta, setSettingsMeta] = useState(DEFAULT_SETTINGS_META);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
@@ -97,111 +96,35 @@ export default function SettingsPage() {
     cardNumber: meta?.cardNumber ?? "",
   });
 
-  const updateCardSettings = async (cardUpdates = {}) => {
-    setSettingsMeta((prev) => ({
-      ...prev,
-      cardPin: cardUpdates.cardPin ?? prev.cardPin,
-      cardNumber: cardUpdates.cardNumber ?? prev.cardNumber,
-      cardPreferences: {
-        ...prev.cardPreferences,
-        ...(cardUpdates.cardPreferences ?? {}),
-      },
-    }));
+  const getUserId = () => localStorage.getItem("userId");
+
+  const saveSettings = async (updatedState, updatedMeta = settingsMeta) => {
+    const userId = getUserId();
+
+    if (!userId) {
+      showNotification("info", "Settings are being saved locally until your profile is linked.", {
+        title: "Offline Preferences",
+        duration: 4200,
+      });
+      return;
+    }
 
     try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
       await axios.put(
         `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, {
-          ...settingsMeta,
-          cardPin: cardUpdates.cardPin ?? settingsMeta.cardPin,
-          cardNumber: cardUpdates.cardNumber ?? settingsMeta.cardNumber,
-          cardPreferences: {
-            ...settingsMeta.cardPreferences,
-            ...(cardUpdates.cardPreferences ?? {}),
-          },
-        })
+        buildSettingsPayload(updatedState, updatedMeta)
       );
     } catch (error) {
-      console.error("Card settings API not ready yet:", error);
+      console.error("Failed to save settings:", error);
+      showNotification("error", "We could not save this setting to the server right now.", {
+        title: "Settings Sync Failed",
+      });
     }
   };
-
-  const updateAlertPreferences = async (alertUpdates = {}) => {
-    const nextState = {
-      ...s,
-      txAlerts: alertUpdates.txAlerts ?? s.txAlerts,
-      doNotDisturb: alertUpdates.doNotDisturb ?? s.doNotDisturb,
-    };
-    const nextMeta = {
-      ...settingsMeta,
-      notificationPreferences: {
-        ...settingsMeta.notificationPreferences,
-        ...(alertUpdates.notificationPreferences ?? {}),
-        transactionAlerts:
-          alertUpdates.txAlerts ?? settingsMeta.notificationPreferences.transactionAlerts,
-        doNotDisturb:
-          alertUpdates.doNotDisturb ?? settingsMeta.notificationPreferences.doNotDisturb,
-      },
-    };
-
-    setSettingsMeta(nextMeta);
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(nextState, nextMeta)
-      );
-    } catch (error) {
-      console.error("Alert preferences API not ready yet:", error);
-    }
-  };
-
-  const updateLanguageSetting = async (language) => {
-    const nextMeta = {
-      ...settingsMeta,
-      language: language ?? settingsMeta.language,
-    };
-
-    setSettingsMeta(nextMeta);
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, nextMeta)
-      );
-    } catch (error) {
-      console.error("Language settings API not ready yet:", error);
-    }
-  };
-
-  const preparedSettingsActions = {
-    updateCardSettings,
-    updateAlertPreferences,
-    updateLanguageSetting,
-  };
-  void preparedSettingsActions;
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const userId = localStorage.getItem("userId");
+      const userId = getUserId();
 
       if (!userId) {
         return;
@@ -236,46 +159,47 @@ export default function SettingsPage() {
         }));
       } catch (error) {
         console.error("Failed to fetch settings:", error);
+        showNotification("error", "We could not load your latest settings from the server.", {
+          title: "Settings Unavailable",
+        });
       }
     };
 
     fetchSettings();
-  }, []);
-
-  const saveSettings = async (updatedState) => {
-    const userId = localStorage.getItem("userId");
-
-    if (!userId) {
-      return;
-    }
-
-    try {
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(updatedState)
-      );
-    } catch (error) {
-      console.error("Failed to save settings:", error);
-    }
-  };
+  }, [showNotification]);
 
   const toggle = async (key) => {
     const updated = { ...s, [key]: !s[key] };
+    const nextMeta = {
+      ...settingsMeta,
+      notificationPreferences: {
+        ...settingsMeta.notificationPreferences,
+        transactionAlerts: key === "txAlerts" ? updated.txAlerts : s.txAlerts,
+        doNotDisturb: key === "doNotDisturb" ? updated.doNotDisturb : s.doNotDisturb,
+      },
+    };
 
     setS(updated);
+    setSettingsMeta(nextMeta);
+    await saveSettings(updated, nextMeta);
 
-    if (key === "txAlerts" || key === "doNotDisturb") {
-      updateAlertPreferences({
-        txAlerts: key === "txAlerts" ? updated.txAlerts : undefined,
-        doNotDisturb: key === "doNotDisturb" ? updated.doNotDisturb : undefined,
-        notificationPreferences: {
-          transactionAlerts: updated.txAlerts,
-          doNotDisturb: updated.doNotDisturb,
-        },
-      });
-    }
+    const messages = {
+      biometric: updated.biometric
+        ? ["warning", "Biometric sign-in has been enabled for extra account protection.", "Biometric Enabled"]
+        : ["info", "Biometric sign-in has been disabled.", "Biometric Disabled"],
+      privacy: updated.privacy
+        ? ["info", "Privacy mode is on. Sensitive values can stay hidden on shared screens.", "Privacy Mode Enabled"]
+        : ["info", "Privacy mode is off. Full balances remain visible.", "Privacy Mode Disabled"],
+      txAlerts: updated.txAlerts
+        ? ["success", "Transaction alerts are active again.", "Alerts Enabled"]
+        : ["warning", "Transaction alerts have been muted.", "Alerts Paused"],
+      doNotDisturb: updated.doNotDisturb
+        ? ["info", "Do Not Disturb is enabled. Non-critical alerts will stay quiet.", "Do Not Disturb Enabled"]
+        : ["success", "Do Not Disturb is off. Real-time alerts are back.", "Do Not Disturb Disabled"],
+    };
 
-    await saveSettings(updated);
+    const [type, message, title] = messages[key];
+    showNotification(type, message, { title });
   };
 
   const openPinModal = () => {
@@ -310,18 +234,27 @@ export default function SettingsPage() {
     if (!/^\d{4,5}$/.test(pinForm.currentPin) || !/^\d{4,5}$/.test(pinForm.newPin)) {
       setPinError("PIN must be 4 or 5 digits.");
       setPinMessage("");
+      showNotification("error", "PIN values must be 4 or 5 digits.", {
+        title: "Invalid PIN",
+      });
       return;
     }
 
     if (pinForm.currentPin !== (settingsMeta.cardPin ?? "")) {
       setPinError("Current PIN does not match.");
       setPinMessage("");
+      showNotification("error", "Current PIN does not match our records.", {
+        title: "PIN Verification Failed",
+      });
       return;
     }
 
     if (pinForm.newPin !== pinForm.confirmPin) {
       setPinError("New PIN and confirm PIN do not match.");
       setPinMessage("");
+      showNotification("error", "New PIN and confirm PIN do not match.", {
+        title: "PIN Mismatch",
+      });
       return;
     }
 
@@ -333,21 +266,11 @@ export default function SettingsPage() {
     setSettingsMeta(nextMeta);
     setPinError("");
     setPinMessage("PIN updated.");
+    await saveSettings(s, nextMeta);
 
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, nextMeta)
-      );
-    } catch (error) {
-      console.error("PIN settings API not ready yet:", error);
-    }
+    showNotification("success", "Your card PIN has been updated.", {
+      title: "PIN Updated",
+    });
   };
 
   return (
@@ -359,10 +282,9 @@ export default function SettingsPage() {
 
         <div className="content">
           <div className="settings-container">
-
             <Section label="Security">
               <SettingRow
-                icon="🔑"
+                icon="PIN"
                 title="Change PIN"
                 subtitle={`Current PIN: ${settingsMeta.cardPin ?? "12345"}`}
                 chevron
@@ -370,7 +292,7 @@ export default function SettingsPage() {
               />
 
               <SettingRow
-                icon="📱"
+                icon="BIO"
                 title="Biometric Login"
                 subtitle="Use FaceID or Fingerprint"
                 toggle={s.biometric}
@@ -378,7 +300,7 @@ export default function SettingsPage() {
               />
 
               <SettingRow
-                icon="👁️"
+                icon="PRV"
                 title="Privacy Mode"
                 subtitle="Hide balances on dashboard"
                 toggle={s.privacy}
@@ -388,7 +310,7 @@ export default function SettingsPage() {
 
             <Section label="Notifications">
               <SettingRow
-                icon="🔔"
+                icon="ALRT"
                 title="Transaction Alerts"
                 subtitle="Get notified for every spend"
                 toggle={s.txAlerts}
@@ -396,7 +318,7 @@ export default function SettingsPage() {
               />
 
               <SettingRow
-                icon="🌙"
+                icon="DND"
                 title="Do Not Disturb"
                 subtitle="Mute alerts during night"
                 toggle={s.doNotDisturb}
@@ -406,24 +328,33 @@ export default function SettingsPage() {
 
             <Section label="Support">
               <SettingRow
-                icon="❓"
+                icon="HELP"
                 title="Help Center"
                 subtitle="FAQs and support guides"
                 chevron
+                onClick={() =>
+                  showNotification("info", "Help Center content will be connected next.", {
+                    title: "Support Coming Soon",
+                  })
+                }
               />
 
               <SettingRow
-                icon="ℹ️"
+                icon="INFO"
                 title="About NexBank"
                 subtitle="Version 2.4.0 (Build 102)"
                 chevron
+                onClick={() =>
+                  showNotification("info", "NexBank frontend notifications are ready for backend integration.", {
+                    title: "About NexBank",
+                  })
+                }
               />
             </Section>
 
             <div className="settings-footer">
-              NexBank Digital Banking • Made with ❤️ in South Africa
+              NexBank Digital Banking • Made with care in South Africa
             </div>
-
           </div>
         </div>
       </div>
@@ -454,7 +385,7 @@ export default function SettingsPage() {
                   aria-label="Close PIN form"
                   onClick={closePinModal}
                 >
-                  ×
+                  x
                 </button>
               </div>
 

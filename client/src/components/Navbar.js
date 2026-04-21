@@ -1,26 +1,6 @@
 import { useState } from "react";
 import { FiBell, FiSearch } from "react-icons/fi";
-
-const defaultNotifications = [
-  {
-    id: 1,
-    title: "Salary received",
-    message: "Your monthly salary has been deposited.",
-    time: "2m ago",
-  },
-  {
-    id: 2,
-    title: "Card payment",
-    message: "Your card was used for a purchase of R245.00.",
-    time: "1h ago",
-  },
-  {
-    id: 3,
-    title: "Security alert",
-    message: "A new login was detected on your account.",
-    time: "Today",
-  },
-];
+import { useNotification } from "./Notification";
 
 function Navbar({
   userName = "user",
@@ -29,6 +9,7 @@ function Navbar({
   style,
 }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const { notificationFeed } = useNotification();
 
   return (
     <header className="navbar" style={style} aria-label="Top navigation bar">
@@ -60,7 +41,9 @@ function Navbar({
             onClick={() => setIsNotificationsOpen((current) => !current)}
           >
             <FiBell size={20} />
-            <span className="navbar__notification-dot" aria-hidden="true" />
+            {notificationFeed.length > 0 && (
+              <span className="navbar__notification-dot" aria-hidden="true" />
+            )}
           </button>
 
           {isNotificationsOpen && (
@@ -77,21 +60,30 @@ function Navbar({
               </div>
 
               <div className="navbar__notification-list">
-                {defaultNotifications.map((notification) => (
-                  <article key={notification.id} className="navbar__notification-item">
+                {notificationFeed.length > 0 ? (
+                  notificationFeed.map((notification) => (
+                    <article key={notification.id} className="navbar__notification-item">
+                      <div className="navbar__notification-item-head">
+                        <span className="navbar__notification-item-title">
+                          {notification.title}
+                        </span>
+                        <span className="navbar__notification-time">
+                          {notification.timeLabel}
+                        </span>
+                      </div>
+                      <p className="navbar__notification-message">{notification.message}</p>
+                    </article>
+                  ))
+                ) : (
+                  <article className="navbar__notification-item navbar__notification-item--empty">
                     <div className="navbar__notification-item-head">
-                      <span className="navbar__notification-item-title">
-                        {notification.title}
-                      </span>
-                      <span className="navbar__notification-time">
-                        {notification.time}
-                      </span>
+                      <span className="navbar__notification-item-title">All clear</span>
                     </div>
                     <p className="navbar__notification-message">
-                      {notification.message}
+                      New account activity and security updates will appear here.
                     </p>
                   </article>
-                ))}
+                )}
               </div>
             </div>
           )}

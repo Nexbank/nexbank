@@ -14,32 +14,35 @@ import PayBills from "./pages/PayBills";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Insights from "./pages/Insights";
+import { NotificationProvider } from "./components/Notification";
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Landing page */}
-        <Route path="/" element={<LandingPage />} />
+    <NotificationProvider>
+      <Router>
+        <Routes>
+          {/* Landing page */}
+          <Route path="/" element={<LandingPage />} />
 
-        {/* Auth pages */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Auth pages */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Main app pages */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/transactions" element={<Transactions />} />
-        <Route path="/cards" element={<Cards />} />
-        <Route path="/deposit" element={<Deposit />} />
-        <Route path="/withdraw" element={<Withdraw />} />
-        <Route path="/transfer" element={<Transfer />} />
-        <Route path="/pay-bills" element={<PayBills />} />
-        <Route path="/insights" element={<Insights />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
-    </Router>
+          {/* Main app pages */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/cards" element={<Cards />} />
+          <Route path="/deposit" element={<Deposit />} />
+          <Route path="/withdraw" element={<Withdraw />} />
+          <Route path="/transfer" element={<Transfer />} />
+          <Route path="/pay-bills" element={<PayBills />} />
+          <Route path="/insights" element={<Insights />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Router>
+    </NotificationProvider>
   );
 }
 

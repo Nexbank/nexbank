@@ -11,6 +11,7 @@ import {
   FiLogOut,
   FiX,
 } from "react-icons/fi";
+import { useNotification } from "./Notification";
 
 const navItems = [
   { name: "Dashboard", path: "/dashboard", icon: FiGrid },
@@ -25,6 +26,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     setIsMobileOpen(false);
@@ -32,6 +34,13 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+
+    showNotification("info", "You have been signed out of NexBank.", {
+      title: "Logout Successful",
+    });
+
     navigate("/login");
   };
 

@@ -12,7 +12,7 @@ const Profile = () => {
         const token = localStorage.getItem("token");
 
         const res = await axios.get(
-          "http://localhost:5000/api/auth/me",
+          "http://localhost:5000/api/profile/me",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -59,13 +59,13 @@ const Profile = () => {
   };
 
   const handleEditClick = () => {
-  setEditForm({
-    email: userInfo.email || "",
-    phone: userInfo.phone || "",
-    location: userInfo.location || "",
-  });
-  setIsEditing(true);
-};
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
+    setIsEditing(true);
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -80,7 +80,7 @@ const Profile = () => {
       const token = localStorage.getItem("token");
 
       const res = await axios.put(
-        "http://localhost:5000/api/auth/update",
+        "http://localhost:5000/api/profile/update",
         {
           phone: editForm.phone,
           location: editForm.location,
@@ -91,7 +91,6 @@ const Profile = () => {
           },
         }
       );
-
       setUserInfo(res.data.user);
       setEditForm(res.data.user);
 
@@ -166,9 +165,19 @@ const Profile = () => {
               </div>
 
               <div className="profile-user-info">
-                <h1>Hi, {userInfo.firstname || "User"}</h1>
+                <h1>
+                  Hi, {userInfo?.displayName || userInfo?.email || "User"}
+                </h1>
+
                 <p className="profile-badge">
-                  Premium Member since 2024
+                  Member since{" "}
+                  {userInfo?.createdAt
+                    ? new Date(userInfo.createdAt).getFullYear()
+                    : "2024"}
+                </p>
+
+                <p className="profile-subtext">
+                  your account is: Basic Account
                 </p>
               </div>
             </div>

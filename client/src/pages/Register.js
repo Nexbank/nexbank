@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 
+
 function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({

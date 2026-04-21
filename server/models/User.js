@@ -1,19 +1,6 @@
 const mongoose = require("mongoose");
  
 const userSchema = new mongoose.Schema({
-<<<<<<< HEAD
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  displayName: String,
-  phone: String,
-  saIdNumber: String,
-  address: String,
-  location: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-module.exports = mongoose.model("User", userSchema);
-=======
   displayName: {
     type: String,
     required: true
@@ -31,6 +18,16 @@ module.exports = mongoose.model("User", userSchema);
     type: String,
     required: true
   },
+
+  firstname: {
+    type: String,
+    trim: true
+  },
+
+  surname: {
+    type: String,
+    trim: true
+  },
  
   phone: {
     type: String,
@@ -42,6 +39,11 @@ module.exports = mongoose.model("User", userSchema);
     type: String,
     unique: true,
     sparse: true
+  },
+
+  address: {
+    type: String,
+    trim: true
   },
  
   location: {
@@ -61,4 +63,3 @@ module.exports = mongoose.model("User", userSchema);
 });
  
 module.exports = mongoose.model("User", userSchema);
->>>>>>> feature/auth

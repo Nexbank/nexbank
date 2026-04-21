@@ -1,103 +1,124 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FiArrowDownRight,
   FiArrowUpRight,
   FiBriefcase,
+  FiCreditCard,
   FiEye,
   FiEyeOff,
   FiHeart,
   FiPlus,
   FiRepeat,
-  FiShoppingBag,
   FiTrendingUp,
-  FiUser,
   FiUserCheck,
   FiZap,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import API from "../services/api";
+import { useAccount } from "../context/AccountContext";
+import { formatBalanceValue, formatCurrency, formatDateTime } from "../utils/currency";
 
 const actionItems = [
-  {
-    label: "Deposit",
-    icon: FiPlus,
-    accentClass: "dashboard-action-card--green",
-    path: "/deposit",
-  },
-  {
-    label: "Withdraw",
-    icon: FiArrowUpRight,
-    accentClass: "dashboard-action-card--blue",
-    path: "/withdraw",
-  },
-  {
-    label: "Transfer",
-    icon: FiRepeat,
-    accentClass: "dashboard-action-card--orange",
-    path: "/transfer",
-  },
-  {
-    label: "Pay Bills",
-    icon: FiArrowDownRight,
-    accentClass: "dashboard-action-card--purple",
-    path: "/pay-bills",
-  },
-];
-
-const summaryItems = [
-  {
-    title: "Total Deposits",
-    value: "R0",
-    change: "+12%",
-    changeClass: "dashboard-stat-change--positive",
-  },
-  {
-    title: "Total Withdrawals",
-    value: "R0",
-    change: "-5%",
-    changeClass: "dashboard-stat-change--negative",
-  },
-  {
-    title: "Activity Count",
-    value: "0",
-    change: "+8%",
-    changeClass: "dashboard-stat-change--info",
-  },
-  {
-    title: "Savings Goal",
-    value: "85%",
-    change: "+2%",
-    changeClass: "dashboard-stat-change--accent",
-  },
-];
-
-const contacts = [
-  { name: "Contact 1", icon: FiUser },
-  { name: "Contact 2", icon: FiUserCheck },
-  { name: "Contact 3", icon: FiShoppingBag },
-  { name: "Contact 4", icon: FiBriefcase },
-  { name: "Contact 5", icon: FiHeart },
+  { label: "Deposit", icon: FiPlus, accentClass: "dashboard-action-card--green", path: "/deposit" },
+  { label: "Withdraw", icon: FiArrowUpRight, accentClass: "dashboard-action-card--blue", path: "/withdraw" },
+  { label: "Transfer", icon: FiRepeat, accentClass: "dashboard-action-card--orange", path: "/transfer" },
+  { label: "Pay Bills", icon: FiArrowDownRight, accentClass: "dashboard-action-card--purple", path: "/pay-bills" },
 ];
 
 function Dashboard() {
-  const [balance, setBalance] = useState(0);
+  const {
+    accounts,
+    allCards: cards,
+    allTransactions: transactions,
+  } = useAccount();
   const [showBalance, setShowBalance] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await API.get("/users/profile");
-        setBalance(res.data.balance);
-      } catch (error) {
-        setBalance(0);
-      }
-    };
+  const viewMode = "overview";
+  const activeAccountId = null;
+  const hasDashboardAccountContext = viewMode === "account" && activeAccountId !== null;
+  void hasDashboardAccountContext;
 
-    fetchData();
-  }, []);
+  const dashboardData = useMemo(() => {
+    const safeAccounts = Array.isArray(accounts) ? accounts : [];
+    const safeCards = Array.isArray(cards) ? cards : [];
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const sortedTransactions = [...safeTransactions].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+    const totalBalance = safeAccounts.reduce(
+      (sum, account) => sum + Number(account.availableBalance || 0),
+      0
+    );
+
+    return {
+      totalBalance,
+      accounts: safeAccounts,
+      cards: safeCards,
+      transactions: sortedTransactions,
+    };
+  }, [accounts, cards, transactions]);
+
+  const {
+    totalBalance,
+    accounts: dashboardAccounts,
+    cards: dashboardCards,
+    transactions: dashboardTransactions,
+  } = dashboardData;
+
+  const recentTransactions = dashboardTransactions.slice(0, 5);
+
+  const totalDebits = dashboardTransactions
+    .filter((transaction) => transaction.direction === "debit")
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+  const activeCardsCount = dashboardCards.filter(
+    (card) => card.isActive && !card.isLocked
+  ).length;
+
+  const lockedCardsCount = dashboardCards.filter((card) => card.isLocked).length;
+
+  const summaryItems = useMemo(() => {
+    const totalCredits = dashboardTransactions
+      .filter((transaction) => transaction.direction === "credit")
+      .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+    const totalDebitsValue = dashboardTransactions
+      .filter((transaction) => transaction.direction === "debit")
+      .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+    const totalBills = dashboardTransactions
+      .filter((transaction) => transaction.type === "bill")
+      .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+
+    return [
+      {
+        title: "Money In",
+        value: formatCurrency(totalCredits),
+        change: `${dashboardTransactions.filter((transaction) => transaction.direction === "credit").length} items`,
+        changeClass: "dashboard-stat-change--positive",
+      },
+      {
+        title: "Money Out",
+        value: formatCurrency(totalDebitsValue),
+        change: `${dashboardTransactions.filter((transaction) => transaction.direction === "debit").length} items`,
+        changeClass: "dashboard-stat-change--negative",
+      },
+      {
+        title: "Bills Paid",
+        value: formatCurrency(totalBills),
+        change: `${dashboardTransactions.filter((transaction) => transaction.type === "bill").length} bills`,
+        changeClass: "dashboard-stat-change--info",
+      },
+      {
+        title: "Cards",
+        value: String(dashboardCards.length),
+        change: `${activeCardsCount} active`,
+        changeClass: "dashboard-stat-change--accent",
+      },
+    ];
+  }, [activeCardsCount, dashboardCards.length, dashboardTransactions]);
 
   return (
     <div className="dashboard-page">
@@ -112,7 +133,7 @@ function Dashboard() {
               <div className="col-12 col-xl-8">
                 <section className="dashboard-balance-card">
                   <div className="dashboard-balance-top">
-                    <p className="dashboard-eyebrow">Available Balance</p>
+                    <p className="dashboard-eyebrow">Total Available Balance</p>
                     <button
                       type="button"
                       className="dashboard-icon-pill"
@@ -126,21 +147,16 @@ function Dashboard() {
                   <div className="dashboard-balance-value-wrap">
                     <span className="dashboard-currency">R</span>
                     <h1 className="dashboard-balance-amount">
-                      {showBalance
-                        ? balance.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        : "••••••"}
+                      {showBalance ? formatBalanceValue(totalBalance) : "******"}
                     </h1>
                   </div>
 
                   <div className="dashboard-balance-footer">
                     <span className="dashboard-trend-pill">
                       <FiTrendingUp size={14} />
-                      +2.4% this month
+                      {dashboardAccounts.length} accounts
                     </span>
-                    <span className="dashboard-balance-hint">Updated just now</span>
+                    <span className="dashboard-balance-hint">Global overview</span>
                   </div>
                 </section>
               </div>
@@ -166,7 +182,7 @@ function Dashboard() {
 
             <section className="dashboard-section">
               <div className="dashboard-section-header">
-                <h2 className="dashboard-section-title">Account Summary</h2>
+                <h2 className="dashboard-section-title">Overview</h2>
               </div>
 
               <div className="row g-4">
@@ -190,25 +206,29 @@ function Dashboard() {
                   <article className="dashboard-panel dashboard-panel--chart">
                     <div className="dashboard-panel-header">
                       <div>
-                        <h2 className="dashboard-panel-title">Spending Overview</h2>
-                        <p className="dashboard-panel-subtitle">You spent R0 this week</p>
+                        <h2 className="dashboard-panel-title">Spending</h2>
+                        <p className="dashboard-panel-subtitle">
+                          {formatCurrency(totalDebits)} has left all accounts
+                        </p>
                       </div>
 
                       <select
                         className="dashboard-select"
-                        defaultValue="Weekly"
+                        defaultValue="All"
                         aria-label="Select overview period"
                       >
-                        <option>Weekly</option>
-                        <option>Monthly</option>
-                        <option>Yearly</option>
+                        <option>All</option>
+                        <option>Recent</option>
+                        <option>Pending</option>
                       </select>
                     </div>
 
                     <div className="dashboard-chart">
                       <div className="dashboard-chart-tooltip">
-                        <span className="dashboard-chart-tooltip-day">FRI</span>
-                        <strong className="dashboard-chart-tooltip-value">R0</strong>
+                        <span className="dashboard-chart-tooltip-day">GLOBAL</span>
+                        <strong className="dashboard-chart-tooltip-value">
+                          {formatCurrency(totalBalance)}
+                        </strong>
                       </div>
 
                       <div className="dashboard-chart-grid">
@@ -221,12 +241,12 @@ function Dashboard() {
                       <div className="dashboard-chart-marker-line" />
                       <div className="dashboard-chart-marker-dot" />
                       <div className="dashboard-chart-axis">
-                        <span>Mon</span>
-                        <span>Tue</span>
-                        <span>Wed</span>
-                        <span>Thu</span>
-                        <span>Fri</span>
-                        <span>Sat</span>
+                        <span>Overview</span>
+                        <span>Credit</span>
+                        <span>Debit</span>
+                        <span>Pending</span>
+                        <span>Recent</span>
+                        <span>Live</span>
                       </div>
                     </div>
                   </article>
@@ -235,22 +255,42 @@ function Dashboard() {
                 <div className="col-12 col-xl-4">
                   <article className="dashboard-panel dashboard-panel--pay">
                     <div className="dashboard-panel-header dashboard-panel-header--stack">
-                      <h2 className="dashboard-panel-title">Quick Pay</h2>
+                      <h2 className="dashboard-panel-title">Cards Overview</h2>
                     </div>
 
                     <div className="dashboard-contact-list">
-                      {contacts.map(({ name, icon: Icon }) => (
-                        <div key={name} className="dashboard-contact-item">
-                          <span className="dashboard-contact-avatar" aria-hidden="true">
-                            <Icon size={18} />
-                          </span>
-                          <span className="dashboard-contact-name">{name}</span>
-                        </div>
-                      ))}
+                      <div className="dashboard-contact-item">
+                        <span className="dashboard-contact-avatar" aria-hidden="true">
+                          <FiCreditCard size={18} />
+                        </span>
+                        <span className="dashboard-contact-name">{dashboardCards.length} total cards</span>
+                      </div>
+                      <div className="dashboard-contact-item">
+                        <span className="dashboard-contact-avatar" aria-hidden="true">
+                          <FiUserCheck size={18} />
+                        </span>
+                        <span className="dashboard-contact-name">{activeCardsCount} active cards</span>
+                      </div>
+                      <div className="dashboard-contact-item">
+                        <span className="dashboard-contact-avatar" aria-hidden="true">
+                          <FiHeart size={18} />
+                        </span>
+                        <span className="dashboard-contact-name">{lockedCardsCount} locked cards</span>
+                      </div>
+                      <div className="dashboard-contact-item">
+                        <span className="dashboard-contact-avatar" aria-hidden="true">
+                          <FiBriefcase size={18} />
+                        </span>
+                        <span className="dashboard-contact-name">{dashboardAccounts.length} linked accounts</span>
+                      </div>
                     </div>
 
-                    <button type="button" className="dashboard-pay-button">
-                      Send Money
+                    <button
+                      type="button"
+                      className="dashboard-pay-button"
+                      onClick={() => navigate("/cards")}
+                    >
+                      Manage Cards
                     </button>
                   </article>
                 </div>
@@ -259,26 +299,42 @@ function Dashboard() {
 
             <section className="dashboard-section dashboard-section--recent">
               <div className="dashboard-section-header">
-                <h2 className="dashboard-panel-title">Recent Transactions</h2>
+                <h2 className="dashboard-panel-title">Recent Activity</h2>
                 <button
                   type="button"
                   className="dashboard-link-button"
                   onClick={() => navigate("/transactions")}
                 >
-                  View All
+                  See All
                 </button>
               </div>
 
-              <article className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true">
-                  <FiZap size={38} />
-                </span>
-                <p className="dashboard-empty-title">No recent transactions yet</p>
-                <p className="dashboard-empty-copy">
-                  Your latest activity will appear here once you start using the dashboard
-                  tools.
-                </p>
-              </article>
+              {recentTransactions.length === 0 ? (
+                <article className="dashboard-empty-state">
+                  <span className="dashboard-empty-icon" aria-hidden="true">
+                    <FiZap size={38} />
+                  </span>
+                  <p className="dashboard-empty-title">No activity yet</p>
+                  <p className="dashboard-empty-copy">
+                    Your latest payments and transfers will show here.
+                  </p>
+                </article>
+              ) : (
+                <div className="action-detail-list">
+                  {recentTransactions.map((transaction) => (
+                    <div key={transaction._id} className="action-detail-row">
+                      <span>
+                        {transaction.description || transaction.type} ·{" "}
+                        {formatDateTime(transaction.createdAt)}
+                      </span>
+                      <strong>
+                        {transaction.direction === "credit" ? "+" : "-"}
+                        {formatCurrency(transaction.amount)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </main>

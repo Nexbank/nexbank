@@ -87,6 +87,7 @@ function LoginForm() {
 
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
+      window.dispatchEvent(new Event("nexbank-auth-changed"));
       console.log("Successfully logged in", response.data.user);
 
       navigate("/dashboard");

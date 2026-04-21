@@ -1807,14 +1807,7 @@ body {
 }
 
 /* Left Panel - Welcome Section */
-.auth-left {
-  flex: 1;
-  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-bg));
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 48px;
-}
+
 
 .auth-left h1 {
   font-size: 48px;
@@ -3806,7 +3799,7 @@ body {
   width: min(100%, 540px);
 }
 
-.auth-panel-glow {
+.-glow {
   position: absolute;
   inset: -2px;
   border-radius: 30px;
@@ -4068,7 +4061,6 @@ body {
     padding: 24px 14px;
   }
 
-  .auth-brand-inner,
   .auth-panel-frame,
   .auth-card--wide,
   .auth-card--compact {
@@ -4112,5 +4104,92 @@ body {
 
   .auth-switcher-link {
     min-width: 0;
+  }
+}
+
+/* =========================
+   AUTH CENTERING & LOGO STYLES (UPDATED - FORCED CENTERING)
+========================= */
+
+/* Force full width centering - IMPORTANT! */
+.auth-shell .row {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+/* Make the form panel take full width and center it */
+.auth-shell .col-lg-12.auth-form-panel {
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100vh !important;
+  padding: 20px !important;
+}
+
+/* Hide the left brand panel completely */
+.auth-shell .col-lg-6.auth-brand-panel {
+  display: none !important;
+}
+
+/* Center the frame container */
+.auth-panel-frame {
+  margin: 0 auto !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+/* Center the card */
+.auth-card {
+  margin: 0 auto !important;
+  width: 100% !important;
+  max-width: 520px !important;
+}
+
+/* Logo container with slogan */
+.auth-logo-container {
+  text-align: center !important;
+  padding: 0 0 20px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  margin-bottom: 24px !important;
+}
+
+.auth-logo-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+.auth-logo {
+  max-width: 160px !important;
+  height: auto !important;
+  display: inline-block !important;
+}
+
+.auth-slogan {
+  color: var(--color-primary) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.5px !important;
+  margin-top: 4px !important;
+}
+
+/* Ensure the card stays centered on all screen sizes */
+@media (max-width: 768px) {
+  .auth-logo {
+    max-width: 130px !important;
+  }
+  
+  .auth-slogan {
+    font-size: 12px !important;
+  }
+  
+  .auth-card {
+    margin: 0 16px !important;
+    max-width: calc(100% - 32px) !important;
   }
 }

@@ -18,4 +18,8 @@ const cardSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+<<<<<<< HEAD
 module.exports = mongoose.model("Card", cardSchema);
+=======
+module.exports = mongoose.model("Card", cardSchema);
+>>>>>>> feature/auth

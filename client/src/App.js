@@ -15,9 +15,7 @@ import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
 import Transfer from "./pages/Transfer";
 import PayBills from "./pages/PayBills";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import Insights from "./pages/Insights";
+
 
 import { AccountProvider } from "./context/AccountContext";
 

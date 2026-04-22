@@ -12,7 +12,7 @@ import API from "../services/api";
 const SELECTED_ACCOUNT_KEY_PREFIX = "nexbank-selected-account-id";
 const LOCAL_BANKING_STATE_KEY_PREFIX = "nexbank-banking-state";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const MINIMUM_ACTIVATION_FUNDING = 50;
+const MINIMUM_ACTIVATION_FUNDING = 0;
 const ACTIVE_CARD_STATUS = "active";
 const FROZEN_CARD_STATUS = "frozen";
 const REPLACED_CARD_STATUS = "replaced";
@@ -26,8 +26,41 @@ const DEFAULT_LIMITS = Object.freeze({
 });
 
 const DEFAULT_ACCOUNT_BLUEPRINT = Object.freeze({
-  name: "Current Account",
-  accountType: "Current",
+  name: "Main Account",
+  accountType: "Main Account",
+});
+
+const ACCOUNT_TYPE_BLUEPRINTS = Object.freeze({
+  "Main Account": {
+    name: "Main Account",
+    accountType: "Main Account",
+    category: "cheque",
+  },
+  TruSave: {
+    name: "TruSave",
+    accountType: "TruSave",
+    category: "savings",
+  },
+  "Flexi Account": {
+    name: "Flexi Account",
+    accountType: "Flexi Account",
+    category: "cheque",
+  },
+  "Transact Account": {
+    name: "Transact Account",
+    accountType: "Transact Account",
+    category: "transact",
+  },
+  "Student Account": {
+    name: "Student Account",
+    accountType: "Student Account",
+    category: "student",
+  },
+  "Private Banking": {
+    name: "Private Banking",
+    accountType: "Private Banking",
+    category: "private",
+  },
 });
 
 const AccountContext = createContext(null);
@@ -53,6 +86,13 @@ const humanizeValue = (value = "") =>
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase())
     .trim();
+
+const getAccountBlueprint = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) =>
+  ACCOUNT_TYPE_BLUEPRINTS[accountType] || {
+    name: accountType || DEFAULT_ACCOUNT_BLUEPRINT.name,
+    accountType: accountType || DEFAULT_ACCOUNT_BLUEPRINT.accountType,
+    category: "cheque",
+  };
 
 const normalizeCardType = (value = "") => {
   const normalized = String(value).trim().toLowerCase();
@@ -113,37 +153,22 @@ const buildSimulatedCvv = (cardId) =>
 
 const toIsoDate = (value) => new Date(value).toISOString();
 
-const resolveAccountActivation = ({
-  account,
-  ledgerBalance,
-  minimumFundingAmount = MINIMUM_ACTIVATION_FUNDING,
-}) => {
-  const explicitlyActive = account?.isActive === true || account?.status === "active";
-  const hasMetFundingThreshold = Number(ledgerBalance || 0) >= Number(minimumFundingAmount || 0);
-  const isActive = explicitlyActive || hasMetFundingThreshold;
-
-  return {
-    isActive,
-    status: isActive ? "active" : "inactive",
-  };
-};
+const resolveAccountActivation = () => ({
+  isActive: true,
+  status: "active",
+});
 
 const normalizeAccount = (account, userId, index) => {
   const accountId = account?._id || account?.id || `account-${userId}-${index + 1}`;
-  const accountType = account?.accountType || DEFAULT_ACCOUNT_BLUEPRINT.accountType;
-  const name = account?.name || DEFAULT_ACCOUNT_BLUEPRINT.name;
+  const blueprint = getAccountBlueprint(account?.accountType);
+  const accountType = account?.accountType || blueprint.accountType;
+  const name = account?.name || blueprint.name;
   const availableBalance = roundCurrency(
     account?.availableBalance ?? account?.balance ?? account?.ledgerBalance ?? 0
   );
   const ledgerBalance = roundCurrency(account?.ledgerBalance ?? availableBalance);
-  const minimumFundingAmount = roundCurrency(
-    account?.minimumFundingAmount ?? MINIMUM_ACTIVATION_FUNDING
-  );
-  const { isActive, status } = resolveAccountActivation({
-    account,
-    ledgerBalance,
-    minimumFundingAmount,
-  });
+  const minimumFundingAmount = 0;
+  const { isActive, status } = resolveAccountActivation();
 
   return {
     _id: accountId,
@@ -151,7 +176,11 @@ const normalizeAccount = (account, userId, index) => {
     userId: account?.userId || userId,
     name,
     accountType,
-    accountNumber: String(account?.accountNumber || buildAccountNumber(userId, index)),
+    category: account?.category || blueprint.category,
+    accountNumber: String(account?.accountNumber || buildAccountNumber(userId, index))
+      .replace(/\D/g, "")
+      .slice(0, 11)
+      .padStart(11, "0"),
     availableBalance,
     ledgerBalance,
     minimumFundingAmount,
@@ -216,6 +245,7 @@ const normalizeCard = (card, userId, index) => {
     atmWithdrawalsEnabled: card?.atmWithdrawalsEnabled ?? normalizedType === "physical",
     replacedByCardId: card?.replacedByCardId || null,
     replacedAt: card?.replacedAt || null,
+    cardNumber: String(card?.cardNumber || buildMaskedPan(card?.last4Digits || "0000").replace(/\D/g, "").slice(0, 16)).padStart(16, "0").slice(-16),
     detailsSource: "system",
     createdAt,
   };
@@ -230,6 +260,7 @@ const createSystemCard = ({ account, cardType, createdAt = new Date().toISOStrin
       cardType,
       cardName:
         normalizeCardType(cardType) === "physical" ? "NexBank Physical Card" : "NexBank Virtual Card",
+      cardNumber: `5214${String(account.accountNumber || "").padStart(11, "0").slice(-11)}${String(offset).padStart(1, "0")}`,
       last4Digits: buildLast4Digits(account.accountNumber, offset),
       createdAt,
       expiryDate: toIsoDate(
@@ -247,18 +278,10 @@ const createSystemCard = ({ account, cardType, createdAt = new Date().toISOStrin
   );
 
 const syncAccountActivation = (accounts = []) =>
-  accounts.map((account) => {
-    const activation = resolveAccountActivation({
-      account,
-      ledgerBalance: account.ledgerBalance,
-      minimumFundingAmount: account.minimumFundingAmount,
-    });
-
-    return {
-      ...account,
-      ...activation,
-    };
-  });
+  accounts.map((account) => ({
+    ...account,
+    ...resolveAccountActivation(),
+  }));
 
 const syncCardsToAccounts = (cards = [], accounts = []) =>
   cards.map((card) => {
@@ -273,7 +296,7 @@ const syncCardsToAccounts = (cards = [], accounts = []) =>
 
     return {
       ...card,
-      isActive: Boolean(linkedAccount.isActive) && !isLifecycleBlocked && card.status === ACTIVE_CARD_STATUS,
+      isActive: !isLifecycleBlocked && card.status === ACTIVE_CARD_STATUS,
       isLocked: card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS,
     };
   });
@@ -306,7 +329,7 @@ const buildProvisionedSummary = (userId) => {
         ledgerBalance: 0,
         createdAt: toIsoDate(Date.now() - 12 * DAY_IN_MS),
         minimumFundingAmount: MINIMUM_ACTIVATION_FUNDING,
-        isActive: false,
+        isActive: true,
       },
       userId,
       0
@@ -341,7 +364,7 @@ const normalizeBankingSummary = (summary, userId) => {
 
   const normalizedAccountsSource =
     Array.isArray(summary?.accounts) && summary.accounts.length > 0
-      ? summary.accounts.slice(0, 1)
+      ? summary.accounts
       : buildProvisionedSummary(userId).accounts;
 
   const accounts = syncAccountActivation(
@@ -359,6 +382,7 @@ const normalizeBankingSummary = (summary, userId) => {
   const cards = sortByCreatedAtDesc(
     (Array.isArray(summary?.cards) ? summary.cards : [])
       .map((card, index) => normalizeCard(card, userId, index))
+      .filter((card) => card.status !== REPLACED_CARD_STATUS)
       .filter((card) => accounts.some((account) => account._id === card.accountId))
   );
 
@@ -452,14 +476,6 @@ const validateMoneyMovement = ({ account, amount, type, route }) => {
     throw new Error("This exceeds your available balance.");
   }
 
-  if (type !== "deposit" && !account.isActive) {
-    throw new Error(
-      `Fund this account with at least R${Number(
-        account.minimumFundingAmount || MINIMUM_ACTIVATION_FUNDING
-      ).toFixed(2)} before using it for outgoing payments.`
-    );
-  }
-
   return normalizedAmount;
 };
 
@@ -476,10 +492,6 @@ const validateCardAuthorization = ({ account, cards, cardId }) => {
 
   if (card.accountId !== account?._id) {
     throw new Error("This card does not belong to the selected account.");
-  }
-
-  if (!account?.isActive) {
-    throw new Error("This account is inactive and cannot authorize transactions.");
   }
 
   if (card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS) {
@@ -696,21 +708,15 @@ export function AccountProvider({ children }) {
   const hasActiveAccount = Boolean(selectedAccount);
 
   const dashboardSummary = useMemo(() => {
-    const totalAvailableBalance = accounts.reduce(
-      (sum, account) => sum + Number(account.availableBalance || 0),
-      0
-    );
-    const totalLedgerBalance = accounts.reduce(
-      (sum, account) => sum + Number(account.ledgerBalance || 0),
-      0
-    );
-    const moneyIn = allTransactions
+    const totalAvailableBalance = Number(selectedAccount?.availableBalance || 0);
+    const totalLedgerBalance = Number(selectedAccount?.ledgerBalance || 0);
+    const moneyIn = selectedTransactions
       .filter((transaction) => transaction.direction === "credit")
       .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
-    const moneyOut = allTransactions
+    const moneyOut = selectedTransactions
       .filter((transaction) => transaction.direction === "debit")
       .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
-    const billsPaid = allTransactions
+    const billsPaid = selectedTransactions
       .filter((transaction) => transaction.type === "bill")
       .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
 
@@ -721,15 +727,15 @@ export function AccountProvider({ children }) {
       moneyOut: roundCurrency(moneyOut),
       billsPaid: roundCurrency(billsPaid),
       accountCount: accounts.length,
-      cardCount: allCards.length,
-      activeCardsCount: allCards.filter((card) => card.isActive && !card.isLocked).length,
-      lockedCardsCount: allCards.filter((card) => card.isLocked).length,
-      recentTransactions: allTransactions.slice(0, 5),
+      cardCount: selectedCards.length,
+      activeCardsCount: selectedCards.filter((card) => card.isActive && !card.isLocked).length,
+      lockedCardsCount: selectedCards.filter((card) => card.isLocked).length,
+      recentTransactions: selectedTransactions.slice(0, 5),
     };
-  }, [accounts, allCards, allTransactions]);
+  }, [accounts.length, selectedAccount, selectedCards, selectedTransactions]);
 
   const insightsSummary = useMemo(() => {
-    const spendingTransactions = allTransactions.filter(
+    const spendingTransactions = selectedTransactions.filter(
       (transaction) => transaction.direction === "debit"
     );
     const spendingCategories = spendingTransactions.reduce((categories, transaction) => {
@@ -754,7 +760,7 @@ export function AccountProvider({ children }) {
       totalSpent: roundCurrency(totalSpent),
       categories,
     };
-  }, [allTransactions]);
+  }, [selectedTransactions]);
 
   const executeWithBankingFallback = useCallback(
     async ({ apiRequest, localUpdate, extractResult }) => {
@@ -787,6 +793,64 @@ export function AccountProvider({ children }) {
       return result;
     },
     [applySummary, commitLocalSummary]
+  );
+
+  const createAccount = useCallback(
+    async ({ accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType }) => {
+      const blueprint = getAccountBlueprint(accountType);
+
+      const account = await executeWithBankingFallback({
+        apiRequest: () =>
+          API.post("/banking/accounts", {
+            accountType: blueprint.accountType,
+          }),
+        localUpdate: (summary) => {
+          const userId = getUserStorageId();
+          const nextAccount = normalizeAccount(
+            {
+              _id: createId("account"),
+              userId,
+              name: blueprint.name,
+              accountType: blueprint.accountType,
+              category: blueprint.category,
+              accountNumber: buildAccountNumber(userId, summary.accounts.length),
+              availableBalance: 0,
+              ledgerBalance: 0,
+              createdAt: new Date().toISOString(),
+            },
+            userId,
+            summary.accounts.length
+          );
+          const nextAccounts = [...summary.accounts, nextAccount];
+          const physicalCard = createSystemCard({
+            account: nextAccount,
+            cardType: "Physical Card",
+            createdAt: nextAccount.createdAt,
+            offset: summary.accounts.length,
+          });
+
+          return {
+            nextSummary: {
+              ...summary,
+              accounts: nextAccounts,
+              cards: sortByCreatedAtDesc(
+                syncCardsToAccounts([physicalCard, ...summary.cards], nextAccounts)
+              ),
+            },
+            result: nextAccount,
+          };
+        },
+        extractResult: (data) => data.account,
+      });
+
+      const userId = getUserStorageId();
+      const nextSelectedId = account?._id || account?.id || null;
+      setSelectedAccountId(nextSelectedId);
+      writeSelectedAccountId(userId, nextSelectedId);
+
+      return account;
+    },
+    [executeWithBankingFallback]
   );
 
   const settleTransaction = useCallback(
@@ -1071,14 +1135,6 @@ export function AccountProvider({ children }) {
         throw new Error("Physical cards are issued automatically and cannot be created here.");
       }
 
-      if (!currentAccount.isActive) {
-        throw new Error(
-          `Fund this account with at least R${Number(
-            currentAccount.minimumFundingAmount || MINIMUM_ACTIVATION_FUNDING
-          ).toFixed(2)} before creating a virtual card.`
-        );
-      }
-
       const existingCards = cards.filter((card) => card.accountId === accountId);
       const hasCardOfType = existingCards.some(
         (card) => normalizeCardType(card.cardType || card.type) === normalizedType
@@ -1105,14 +1161,6 @@ export function AccountProvider({ children }) {
             throw new Error("Select an account before creating a card.");
           }
 
-          if (!targetAccount.isActive) {
-            throw new Error(
-              `Fund this account with at least R${Number(
-                targetAccount.minimumFundingAmount || MINIMUM_ACTIVATION_FUNDING
-              ).toFixed(2)} before creating a virtual card.`
-            );
-          }
-
           if (cardAlreadyExists) {
             throw new Error("This account already has that card type.");
           }
@@ -1127,7 +1175,9 @@ export function AccountProvider({ children }) {
           return {
             nextSummary: {
               ...summary,
-              cards: sortByCreatedAtDesc([nextCard, ...summary.cards]),
+              cards: sortByCreatedAtDesc([nextCard, ...summary.cards]).filter(
+                (card) => card.status !== REPLACED_CARD_STATUS
+              ),
             },
             result: nextCard,
           };
@@ -1201,7 +1251,9 @@ export function AccountProvider({ children }) {
           );
           const nextSummary = {
             ...summary,
-            cards: sortByCreatedAtDesc(syncCardsToAccounts(nextCards, summary.accounts)),
+            cards: sortByCreatedAtDesc(syncCardsToAccounts(nextCards, summary.accounts)).filter(
+              (card) => card.status !== REPLACED_CARD_STATUS
+            ),
           };
           const result =
             nextSummary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
@@ -1228,12 +1280,37 @@ export function AccountProvider({ children }) {
             throw new Error("Card not found.");
           }
 
-          if (targetCard.status === REPLACED_CARD_STATUS) {
-            throw new Error("This card has already been replaced.");
-          }
-
           const account =
             summary.accounts.find((item) => item._id === targetCard.accountId) || null;
+
+          const existingReplacement =
+            summary.cards.find(
+              (card) =>
+                (card._id === targetCard.replacedByCardId || card.id === targetCard.replacedByCardId) &&
+                card.status !== REPLACED_CARD_STATUS
+            ) || null;
+
+          if (existingReplacement) {
+            const nextCards = summary.cards.filter(
+              (card) => card._id !== targetCard._id && card.id !== targetCard.id
+            );
+
+            return {
+              nextSummary: {
+                ...summary,
+                cards: sortByCreatedAtDesc(nextCards),
+              },
+              result: {
+                oldCard: {
+                  ...targetCard,
+                  status: REPLACED_CARD_STATUS,
+                  isActive: false,
+                  isLocked: true,
+                },
+                newCard: existingReplacement,
+              },
+            };
+          }
 
           if (!account) {
             throw new Error("Account not found.");
@@ -1275,14 +1352,20 @@ export function AccountProvider({ children }) {
             ...summary,
             cards: sortByCreatedAtDesc(
               syncCardsToAccounts([rotatedReplacement, ...nextCards], summary.accounts)
-            ),
+            ).filter((card) => card.status !== REPLACED_CARD_STATUS),
           };
 
           return {
             nextSummary,
             result: {
-              oldCard:
-                nextSummary.cards.find((card) => card._id === cardId || card.id === cardId) || null,
+              oldCard: {
+                ...targetCard,
+                status: REPLACED_CARD_STATUS,
+                isActive: false,
+                isLocked: true,
+                replacedByCardId: rotatedReplacement._id,
+                replacedAt: new Date().toISOString(),
+              },
               newCard: rotatedReplacement,
             },
           };
@@ -1369,6 +1452,7 @@ export function AccountProvider({ children }) {
         setSelectedAccountId(null);
         writeSelectedAccountId(userId, null);
       },
+      createAccount,
       createCard,
       updateCard,
       freezeCard,
@@ -1385,6 +1469,7 @@ export function AccountProvider({ children }) {
       allCards,
       allTransactions,
       cardDetailsById,
+      createAccount,
       createCard,
       dashboardSummary,
       depositFunds,

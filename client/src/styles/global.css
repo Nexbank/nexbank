@@ -1318,6 +1318,76 @@ body {
   line-height: 1.7;
 }
 
+.account-scope-panel {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(18, 211, 148, 0.08), rgba(59, 130, 246, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.account-scope-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+}
+
+.account-scope-panel__title {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.account-scope-panel__copy {
+  margin: 10px 0 0;
+  color: #9ba3af;
+  max-width: 720px;
+}
+
+.account-scope-panel__field {
+  display: grid;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.account-scope-panel__field span,
+.account-scope-chip__label,
+.account-scope-stat__label {
+  color: #d9e0ea;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.account-scope-panel__summary,
+.account-scope-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.account-scope-chip,
+.account-scope-stat {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(17, 17, 17, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.account-scope-chip strong,
+.account-scope-stat__value {
+  color: #f8fafc;
+  font-size: 1.1rem;
+}
+
+.account-scope-stat__meta {
+  color: #8d95a3;
+}
+
 .action-page--banking {
   background:
     linear-gradient(180deg, rgba(17, 17, 17, 0.96), rgba(17, 17, 17, 0.98)),
@@ -5089,6 +5159,16 @@ body {
     margin: 0 16px !important;
     max-width: calc(100% - 32px) !important;
   }
+
+  .account-scope-panel__header {
+    grid-template-columns: 1fr;
+    display: grid;
+    align-items: stretch;
+  }
+
+  .account-scope-panel__field {
+    min-width: 0;
+  }
 }
 
 .action-page__grid {
@@ -5176,6 +5256,10 @@ body {
 }
 
 .action-form__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   min-height: 52px;
   border: none;
   border-radius: 16px;

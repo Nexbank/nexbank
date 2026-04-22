@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiArrowUpRight, FiX } from "react-icons/fi";
 import { spendingCategories } from "../constants/transactionCategories";
+import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import API from "../services/api";
+import { useAccount } from "../context/AccountContext";
 import { formatCurrency } from "../utils/banking";
 
 export default function Withdraw() {
   const navigate = useNavigate();
-  const [overview, setOverview] = useState({ account: { balance: 0, accountNumber: "" } });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -26,21 +27,7 @@ export default function Withdraw() {
       return {};
     }
   }, []);
-
-  useEffect(() => {
-    const fetchOverview = async () => {
-      try {
-        const response = await API.get("/banking/overview");
-        setOverview(response.data);
-      } catch (error) {
-        if (error.response?.status === 401) {
-          navigate("/login");
-        }
-      }
-    };
-
-    fetchOverview();
-  }, [navigate]);
+  const { selectedAccount, refreshSummary, isLoading } = useAccount();
 
   const handleChange = (event) => {
     setForm((current) => ({
@@ -57,9 +44,15 @@ export default function Withdraw() {
       return;
     }
 
+    if (!selectedAccount) {
+      alert("Please select an account before making a withdrawal.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       await API.post("/banking/withdraw", {
+        accountId: selectedAccount._id,
         amount: Number(form.amount),
         fee: Number(form.fee || 0),
         category: form.category,
@@ -67,6 +60,7 @@ export default function Withdraw() {
         status: form.status,
       });
 
+      await refreshSummary();
       setIsModalOpen(false);
       alert("Withdrawal completed successfully.");
       navigate("/dashboard");
@@ -102,38 +96,46 @@ export default function Withdraw() {
                   <p className="action-page__eyebrow">Transactions</p>
                   <h1 className="action-page__title">Withdraw</h1>
                   <p className="action-page__copy">
-                    Send money out from {selectedAccount.name}, review the destination, and keep
+                    Send money out from {selectedAccount?.accountNumber || "your account"}, review the destination, and keep
                     the payout flow secure and easy to follow.
                   </p>
                 </div>
               </div>
 
-              <div className="action-page__grid">
+              {isLoading ? (
                 <article className="action-panel">
-                  <p className="action-panel__label">Available balance</p>
-                  <h2 className="action-panel__value">{formatCurrency(overview.account.balance)}</h2>
-                  <p className="action-panel__meta">
-                    Account: {overview.account.accountNumber || "Main account"}
-                  </p>
+                  <p className="action-helper">Loading account details...</p>
                 </article>
-
-                <article className="action-panel action-panel--form">
-                  <div className="action-panel__header">
-                    <h2 className="action-panel__title">Open Withdrawal Modal</h2>
-                    <p className="action-panel__copy">
-                      Capture the withdrawal details from the transaction model before posting.
+              ) : !selectedAccount ? (
+                <AccountRequiredState />
+              ) : (
+                <div className="action-page__grid">
+                  <article className="action-panel">
+                    <p className="action-panel__label">Available balance</p>
+                    <h2 className="action-panel__value">{formatCurrency(selectedAccount.availableBalance)}</h2>
+                    <p className="action-panel__meta">
+                      Account: {selectedAccount.accountNumber}
                     </p>
-                  </div>
+                  </article>
 
-                  <button
-                    type="button"
-                    className="action-form__button"
-                    onClick={() => setIsModalOpen(true)}
-                  >
-                    Enter Withdrawal Details
-                  </button>
-                </article>
-              </div>
+                  <article className="action-panel action-panel--form">
+                    <div className="action-panel__header">
+                      <h2 className="action-panel__title">Open Withdrawal Modal</h2>
+                      <p className="action-panel__copy">
+                        Capture the withdrawal details from the transaction model before posting.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="action-form__button"
+                      onClick={() => setIsModalOpen(true)}
+                    >
+                      Enter Withdrawal Details
+                    </button>
+                  </article>
+                </div>
+              )}
             </section>
           </div>
         </main>

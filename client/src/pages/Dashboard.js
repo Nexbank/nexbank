@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FiArrowDownRight,
   FiArrowUpRight,
@@ -17,7 +17,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import TransactionList from "../components/TransactionList";
 import API from "../services/api";
+import { formatCurrency } from "../utils/banking";
 
 const actionItems = [
   {
@@ -46,33 +48,6 @@ const actionItems = [
   },
 ];
 
-const summaryItems = [
-  {
-    title: "Total Deposits",
-    value: "R0",
-    change: "+12%",
-    changeClass: "dashboard-stat-change--positive",
-  },
-  {
-    title: "Total Withdrawals",
-    value: "R0",
-    change: "-5%",
-    changeClass: "dashboard-stat-change--negative",
-  },
-  {
-    title: "Activity Count",
-    value: "0",
-    change: "+8%",
-    changeClass: "dashboard-stat-change--info",
-  },
-  {
-    title: "Savings Goal",
-    value: "85%",
-    change: "+2%",
-    changeClass: "dashboard-stat-change--accent",
-  },
-];
-
 const contacts = [
   { name: "Contact 1", icon: FiUser },
   { name: "Contact 2", icon: FiUserCheck },
@@ -81,30 +56,93 @@ const contacts = [
   { name: "Contact 5", icon: FiHeart },
 ];
 
+const emptyOverview = {
+  account: { balance: 0, accountNumber: "" },
+  summary: {
+    totalDeposits: 0,
+    totalWithdrawals: 0,
+    activityCount: 0,
+    depositCount: 0,
+    withdrawalCount: 0,
+    savingsRate: 0,
+  },
+  insights: { totalSpent: 0 },
+  recentTransactions: [],
+};
+
 function Dashboard() {
-  const [balance, setBalance] = useState(0);
+  const [overview, setOverview] = useState(emptyOverview);
   const [showBalance, setShowBalance] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (error) {
+      return {};
+    }
+  }, []);
+
+  const userName =
+    storedUser.firstname ||
+    storedUser.displayName?.split(" ")[0] ||
+    storedUser.email?.split("@")[0] ||
+    "User";
+
+  const summaryItems = [
+    {
+      title: "Total Deposits",
+      value: formatCurrency(overview.summary.totalDeposits),
+      change: `${overview.summary.depositCount} posted`,
+      changeClass: "dashboard-stat-change--positive",
+    },
+    {
+      title: "Total Withdrawals",
+      value: formatCurrency(overview.summary.totalWithdrawals),
+      change: `${overview.summary.withdrawalCount} posted`,
+      changeClass: "dashboard-stat-change--negative",
+    },
+    {
+      title: "Activity Count",
+      value: String(overview.summary.activityCount),
+      change: "Live updates",
+      changeClass: "dashboard-stat-change--info",
+    },
+    {
+      title: "Savings Goal",
+      value: `${overview.summary.savingsRate}%`,
+      change: "Based on deposits",
+      changeClass: "dashboard-stat-change--accent",
+    },
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await API.get("/users/profile");
-        setBalance(res.data.balance);
+        setIsLoading(true);
+        const response = await API.get("/banking/overview");
+        setOverview(response.data);
       } catch (error) {
-        setBalance(0);
+        if (error.response?.status === 401) {
+          navigate("/login");
+          return;
+        }
+
+        setOverview(emptyOverview);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="dashboard-page">
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar />
+        <Navbar userName={userName} />
 
         <main className="dashboard-content-area">
           <div className="container-fluid px-0 dashboard-shell">
@@ -127,7 +165,7 @@ function Dashboard() {
                     <span className="dashboard-currency">R</span>
                     <h1 className="dashboard-balance-amount">
                       {showBalance
-                        ? balance.toLocaleString(undefined, {
+                        ? overview.account.balance.toLocaleString("en-ZA", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })
@@ -138,9 +176,11 @@ function Dashboard() {
                   <div className="dashboard-balance-footer">
                     <span className="dashboard-trend-pill">
                       <FiTrendingUp size={14} />
-                      +2.4% this month
+                      {overview.account.accountNumber || "Main account"}
                     </span>
-                    <span className="dashboard-balance-hint">Updated just now</span>
+                    <span className="dashboard-balance-hint">
+                      {isLoading ? "Loading account..." : "Updated from live account data"}
+                    </span>
                   </div>
                 </section>
               </div>
@@ -191,12 +231,14 @@ function Dashboard() {
                     <div className="dashboard-panel-header">
                       <div>
                         <h2 className="dashboard-panel-title">Spending Overview</h2>
-                        <p className="dashboard-panel-subtitle">You spent R0 this week</p>
+                        <p className="dashboard-panel-subtitle">
+                          You spent {formatCurrency(overview.insights.totalSpent)} this month
+                        </p>
                       </div>
 
                       <select
                         className="dashboard-select"
-                        defaultValue="Weekly"
+                        defaultValue="Monthly"
                         aria-label="Select overview period"
                       >
                         <option>Weekly</option>
@@ -207,8 +249,10 @@ function Dashboard() {
 
                     <div className="dashboard-chart">
                       <div className="dashboard-chart-tooltip">
-                        <span className="dashboard-chart-tooltip-day">FRI</span>
-                        <strong className="dashboard-chart-tooltip-value">R0</strong>
+                        <span className="dashboard-chart-tooltip-day">LIVE</span>
+                        <strong className="dashboard-chart-tooltip-value">
+                          {formatCurrency(overview.insights.totalSpent)}
+                        </strong>
                       </div>
 
                       <div className="dashboard-chart-grid">
@@ -269,16 +313,20 @@ function Dashboard() {
                 </button>
               </div>
 
-              <article className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true">
-                  <FiZap size={38} />
-                </span>
-                <p className="dashboard-empty-title">No recent transactions yet</p>
-                <p className="dashboard-empty-copy">
-                  Your latest activity will appear here once you start using the dashboard
-                  tools.
-                </p>
-              </article>
+              {overview.recentTransactions.length === 0 ? (
+                <article className="dashboard-empty-state">
+                  <span className="dashboard-empty-icon" aria-hidden="true">
+                    <FiZap size={38} />
+                  </span>
+                  <p className="dashboard-empty-title">No recent transactions yet</p>
+                  <p className="dashboard-empty-copy">
+                    Your latest activity will appear here once you start using the dashboard
+                    tools.
+                  </p>
+                </article>
+              ) : (
+                <TransactionList transactions={overview.recentTransactions} />
+              )}
             </section>
           </div>
         </main>

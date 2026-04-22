@@ -77,46 +77,21 @@ function Register() {
   return (
     <div className="auth-shell auth-shell--register container-fluid">
       <div className="row g-0 min-vh-100">
-        <div className="col-lg-6 auth-brand-panel">
-          <div className="auth-brand-inner">
-            <div className="auth-brand-lockup">
-              <img
-                src="/NexBank-logo.png"
-                alt="NexBank"
-                className="auth-brand-logo"
-              />
-              <div className="auth-brand-lockup-copy">
-                <span className="auth-brand-name">NexBank</span>
-                <span className="auth-brand-slogan">Your money simplified</span>
-              </div>
-            </div>
-            <span className="auth-brand-chip">New Account</span>
-            <h1 className="auth-brand-title">Create a secure NexBank profile in a few clean steps.</h1>
-            <p className="auth-brand-copy">
-              Register with your personal details, address, and security credentials to get started.
-            </p>
-
-            <div className="auth-brand-highlights">
-              <div className="auth-highlight-card">
-                <span className="auth-highlight-label">Personal details</span>
-                <strong>Full onboarding profile</strong>
-              </div>
-              <div className="auth-highlight-card">
-                <span className="auth-highlight-label">Address added</span>
-                <strong>Ready for account setup</strong>
-              </div>
-              <div className="auth-highlight-card">
-                <span className="auth-highlight-label">Secure finish</span>
-                <strong>Login after successful signup</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-6 auth-form-panel">
+        <div className="col-lg-12 auth-form-panel">
           <div className="auth-panel-frame">
             <div className="auth-panel-glow" />
             <div className="auth-card auth-card--wide">
+              {/* Logo with slogan */}
+              <div className="auth-logo-container text-center">
+                <div className="auth-logo-wrapper">
+                  <img 
+                    src="/NexBank-logo.png" 
+                    alt="NexBank Logo" 
+                    className="auth-logo"
+                  />
+                  <span className="auth-slogan">Your money simplified</span>
+                </div>
+              </div>
               <div className="auth-switcher" role="tablist" aria-label="Authentication pages">
                 <Link className="auth-switcher-link" to="/login">
                   Login

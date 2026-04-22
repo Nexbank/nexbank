@@ -61,8 +61,11 @@ function LoginForm() {
       });
 
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userId", response.data.user._id);  // <--- ADD THIS LINE
       localStorage.setItem("user", JSON.stringify(response.data.user));
+      
       console.log("Successfully logged in", response.data.user);
+      console.log("Your userId is:", response.data.user._id); // This helps you see it's working
 
       navigate("/dashboard");
     } catch (error) {

@@ -17,11 +17,13 @@ app.use(cors());
 
 app.use(express.json());
 
-// Routes
-
+// routes
 const authRoutes = require("./routes/authRoutes");
+const profileRoutes = require("./routes/profile");
 
+app.use("/api/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
+
 
 // MongoDB Connection
 

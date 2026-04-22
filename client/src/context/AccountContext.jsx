@@ -13,6 +13,9 @@ const SELECTED_ACCOUNT_KEY_PREFIX = "nexbank-selected-account-id";
 const LOCAL_BANKING_STATE_KEY_PREFIX = "nexbank-banking-state";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const MINIMUM_ACTIVATION_FUNDING = 50;
+const ACTIVE_CARD_STATUS = "active";
+const FROZEN_CARD_STATUS = "frozen";
+const REPLACED_CARD_STATUS = "replaced";
 
 const DEFAULT_LIMITS = Object.freeze({
   deposit: 50000,
@@ -99,6 +102,15 @@ const buildLast4Digits = (accountNumber, offset = 0) => {
   return String(baseValue + offset).padStart(4, "0").slice(-4);
 };
 
+const buildMaskedPan = (last4Digits) => `5214 **** **** ${String(last4Digits).slice(-4).padStart(4, "0")}`;
+
+const buildSimulatedCvv = (cardId) =>
+  String(
+    100 +
+      [...String(cardId || "card")]
+        .reduce((sum, character) => sum + character.charCodeAt(0), 0) % 900
+  );
+
 const toIsoDate = (value) => new Date(value).toISOString();
 
 const resolveAccountActivation = ({
@@ -160,6 +172,7 @@ const normalizeTransaction = (transaction, index) => {
     _id: transactionId,
     id: transactionId,
     accountId: transaction?.accountId || "",
+    cardId: transaction?.cardId || transaction?.metadata?.cardId || null,
     amount: roundCurrency(transaction?.amount),
     direction: transaction?.direction || "debit",
     type: transaction?.type || "transfer",
@@ -176,6 +189,9 @@ const normalizeCard = (card, userId, index) => {
   const normalizedType = normalizeCardType(card?.cardType || card?.type) || "physical";
   const cardId = card?._id || card?.id || `card-${userId}-${accountId}-${normalizedType}-${index}`;
   const createdAt = card?.createdAt || toIsoDate(Date.now() - index * DAY_IN_MS);
+  const status = String(card?.status || (card?.isLocked ? FROZEN_CARD_STATUS : ACTIVE_CARD_STATUS))
+    .trim()
+    .toLowerCase();
 
   return {
     _id: cardId,
@@ -183,15 +199,23 @@ const normalizeCard = (card, userId, index) => {
     userId: card?.userId || userId,
     accountId,
     cardType: normalizedType === "physical" ? "Physical Card" : "Virtual Card",
+    cardName:
+      card?.cardName || (normalizedType === "physical" ? "NexBank Physical Card" : "NexBank Virtual Card"),
     last4Digits: String(card?.last4Digits || "0000").slice(-4).padStart(4, "0"),
     expiryDate:
       card?.expiryDate ||
       toIsoDate(new Date(new Date(createdAt).setFullYear(new Date(createdAt).getFullYear() + 4))),
-    isActive: card?.isActive ?? false,
-    isLocked: card?.isLocked ?? false,
+    status,
+    isActive: card?.isActive ?? status === ACTIVE_CARD_STATUS,
+    isLocked:
+  card?.isLocked ??
+  (status === FROZEN_CARD_STATUS ||
+   status === REPLACED_CARD_STATUS),
     contactlessEnabled: card?.contactlessEnabled ?? true,
     onlinePaymentsEnabled: card?.onlinePaymentsEnabled ?? true,
     atmWithdrawalsEnabled: card?.atmWithdrawalsEnabled ?? normalizedType === "physical",
+    replacedByCardId: card?.replacedByCardId || null,
+    replacedAt: card?.replacedAt || null,
     detailsSource: "system",
     createdAt,
   };
@@ -204,11 +228,14 @@ const createSystemCard = ({ account, cardType, createdAt = new Date().toISOStrin
       userId: account.userId,
       accountId: account._id,
       cardType,
+      cardName:
+        normalizeCardType(cardType) === "physical" ? "NexBank Physical Card" : "NexBank Virtual Card",
       last4Digits: buildLast4Digits(account.accountNumber, offset),
       createdAt,
       expiryDate: toIsoDate(
         new Date(new Date(createdAt).setFullYear(new Date(createdAt).getFullYear() + 4))
       ),
+      status: ACTIVE_CARD_STATUS,
       isActive: Boolean(account.isActive),
       isLocked: false,
       contactlessEnabled: true,
@@ -241,9 +268,13 @@ const syncCardsToAccounts = (cards = [], accounts = []) =>
       return card;
     }
 
+    const isLifecycleBlocked =
+      card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS;
+
     return {
       ...card,
-      isActive: Boolean(linkedAccount.isActive),
+      isActive: Boolean(linkedAccount.isActive) && !isLifecycleBlocked && card.status === ACTIVE_CARD_STATUS,
+      isLocked: card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS,
     };
   });
 
@@ -333,19 +364,23 @@ const normalizeBankingSummary = (summary, userId) => {
 
   const constrainedCards = accounts.flatMap((account, index) => {
     const accountCards = cards.filter((card) => card.accountId === account._id);
-    const physicalCard =
-      accountCards.find((card) => normalizeCardType(card.cardType || card.type) === "physical") ||
+    const hasPhysicalCard = accountCards.some(
+      (card) => normalizeCardType(card.cardType || card.type) === "physical"
+    );
+
+    if (hasPhysicalCard) {
+      return accountCards;
+    }
+
+    return [
+      ...accountCards,
       createSystemCard({
         account,
         cardType: "Physical Card",
         createdAt: account.createdAt,
         offset: index,
-      });
-    const virtualCard =
-      accountCards.find((card) => normalizeCardType(card.cardType || card.type) === "virtual") ||
-      null;
-
-    return virtualCard ? [physicalCard, virtualCard] : [physicalCard];
+      }),
+    ];
   });
 
   return {
@@ -428,6 +463,36 @@ const validateMoneyMovement = ({ account, amount, type, route }) => {
   return normalizedAmount;
 };
 
+const validateCardAuthorization = ({ account, cards, cardId }) => {
+  if (!cardId) {
+    return null;
+  }
+
+  const card = cards.find((item) => item._id === cardId || item.id === cardId) || null;
+
+  if (!card) {
+    throw new Error("Card not found for this account.");
+  }
+
+  if (card.accountId !== account?._id) {
+    throw new Error("This card does not belong to the selected account.");
+  }
+
+  if (!account?.isActive) {
+    throw new Error("This account is inactive and cannot authorize transactions.");
+  }
+
+  if (card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS) {
+    throw new Error("This card cannot authorize transactions in its current state.");
+  }
+
+  if (!card.isActive) {
+    throw new Error("This card is not active.");
+  }
+
+  return card;
+};
+
 const resolveInsightCategoryId = (transaction) => {
   if (transaction.type === "bill") {
     return transaction.metadata?.category || "bills";
@@ -472,6 +537,7 @@ export function AccountProvider({ children }) {
   const [accounts, setAccounts] = useState([]);
   const [cards, setCards] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [cardDetailsById, setCardDetailsById] = useState({});
   const [selectedAccountId, setSelectedAccountId] = useState(() =>
     readSelectedAccountId(getUserStorageId())
   );
@@ -495,6 +561,13 @@ export function AccountProvider({ children }) {
     setAccounts(nextSummary.accounts);
     setCards(nextSummary.cards);
     setTransactions(nextSummary.transactions);
+    setCardDetailsById((currentDetails) =>
+      Object.fromEntries(
+        Object.entries(currentDetails).filter(([cardId]) =>
+          nextSummary.cards.some((card) => card._id === cardId || card.id === cardId)
+        )
+      )
+    );
     setError("");
 
     setSelectedAccountId((currentSelectedId) => {
@@ -537,6 +610,7 @@ export function AccountProvider({ children }) {
     setAccounts([]);
     setCards([]);
     setTransactions([]);
+    setCardDetailsById({});
     setSelectedAccountId(null);
     setError(message);
   }, []);
@@ -770,6 +844,7 @@ export function AccountProvider({ children }) {
       metadata,
       amount,
       accountId = selectedAccount?._id,
+      cardId = null,
       route,
       completionDelayMs,
     }) => {
@@ -780,18 +855,27 @@ export function AccountProvider({ children }) {
         type,
         route,
       });
+      validateCardAuthorization({
+        account: currentAccount,
+        cards,
+        cardId,
+      });
 
       const transaction = await executeWithBankingFallback({
         apiRequest: () =>
           API.post("/banking/transactions", {
             accountId,
+            cardId,
             type,
             direction,
             amount: normalizedAmount,
             status,
             reference,
             description,
-            metadata,
+            metadata: {
+              ...(metadata || {}),
+              ...(cardId ? { cardId } : {}),
+            },
           }),
         localUpdate: (summary) => {
           const targetAccount = summary.accounts.find((account) => account._id === accountId) || null;
@@ -801,18 +885,27 @@ export function AccountProvider({ children }) {
             type,
             route,
           });
+          validateCardAuthorization({
+            account: targetAccount,
+            cards: summary.cards,
+            cardId,
+          });
           const transactionId = createId(`transaction-${type}`);
           const nextTransaction = normalizeTransaction(
             {
               _id: transactionId,
               accountId,
+              cardId,
               amount: validatedAmount,
               direction,
               type,
               status,
               reference,
               description,
-              metadata,
+              metadata: {
+                ...(metadata || {}),
+                ...(cardId ? { cardId } : {}),
+              },
               createdAt: new Date().toISOString(),
             },
             summary.transactions.length
@@ -838,7 +931,7 @@ export function AccountProvider({ children }) {
       scheduleSettlement(transaction._id || transaction.id, completionDelayMs);
       return transaction;
     },
-    [accounts, executeWithBankingFallback, scheduleSettlement, selectedAccount]
+    [accounts, cards, executeWithBankingFallback, scheduleSettlement, selectedAccount]
   );
 
   const depositFunds = useCallback(
@@ -1050,6 +1143,17 @@ export function AccountProvider({ children }) {
       executeWithBankingFallback({
         apiRequest: () => API.patch(`/banking/cards/${cardId}`, payload),
         localUpdate: (summary) => {
+          const targetCard =
+            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
+
+          if (!targetCard) {
+            throw new Error("Card not found.");
+          }
+
+          if (targetCard.status === REPLACED_CARD_STATUS) {
+            throw new Error("A replaced card cannot be changed.");
+          }
+
           const nextCards = summary.cards.map((card) =>
             card._id === cardId || card.id === cardId ? { ...card, ...payload } : card
           );
@@ -1069,6 +1173,176 @@ export function AccountProvider({ children }) {
     [executeWithBankingFallback]
   );
 
+  const freezeCard = useCallback(
+    async (cardId) =>
+      executeWithBankingFallback({
+        apiRequest: () => API.post(`/banking/cards/${cardId}/freeze`),
+        localUpdate: (summary) => {
+          const targetCard =
+            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
+
+          if (!targetCard) {
+            throw new Error("Card not found.");
+          }
+
+          if (targetCard.status === REPLACED_CARD_STATUS) {
+            throw new Error("A replaced card cannot be frozen.");
+          }
+
+          const nextCards = summary.cards.map((card) =>
+            card._id === cardId || card.id === cardId
+              ? {
+                  ...card,
+                  status: FROZEN_CARD_STATUS,
+                  isActive: false,
+                  isLocked: true,
+                }
+              : card
+          );
+          const nextSummary = {
+            ...summary,
+            cards: sortByCreatedAtDesc(syncCardsToAccounts(nextCards, summary.accounts)),
+          };
+          const result =
+            nextSummary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
+
+          return {
+            nextSummary,
+            result,
+          };
+        },
+        extractResult: (data) => data.card,
+      }),
+    [executeWithBankingFallback]
+  );
+
+  const replaceCard = useCallback(
+    async (cardId) =>
+      executeWithBankingFallback({
+        apiRequest: () => API.post(`/banking/cards/${cardId}/replace`),
+        localUpdate: (summary) => {
+          const targetCard =
+            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
+
+          if (!targetCard) {
+            throw new Error("Card not found.");
+          }
+
+          if (targetCard.status === REPLACED_CARD_STATUS) {
+            throw new Error("This card has already been replaced.");
+          }
+
+          const account =
+            summary.accounts.find((item) => item._id === targetCard.accountId) || null;
+
+          if (!account) {
+            throw new Error("Account not found.");
+          }
+
+          const replacementCard = createSystemCard({
+            account,
+            cardType: targetCard.cardType,
+            createdAt: new Date().toISOString(),
+            offset: 31,
+          });
+          const replacementId = createId(`card-${normalizeCardType(targetCard.cardType) || "card"}`);
+
+          const rotatedReplacement = {
+            ...replacementCard,
+            _id: replacementId,
+            id: replacementId,
+            cardName: targetCard.cardName,
+            status: ACTIVE_CARD_STATUS,
+            isActive: Boolean(account.isActive),
+            isLocked: false,
+            contactlessEnabled: targetCard.contactlessEnabled,
+            onlinePaymentsEnabled: targetCard.onlinePaymentsEnabled,
+            atmWithdrawalsEnabled: targetCard.atmWithdrawalsEnabled,
+          };
+          const nextCards = summary.cards.map((card) =>
+            card._id === cardId || card.id === cardId
+              ? {
+                  ...card,
+                  status: REPLACED_CARD_STATUS,
+                  isActive: false,
+                  isLocked: true,
+                  replacedByCardId: rotatedReplacement._id,
+                  replacedAt: new Date().toISOString(),
+                }
+              : card
+          );
+          const nextSummary = {
+            ...summary,
+            cards: sortByCreatedAtDesc(
+              syncCardsToAccounts([rotatedReplacement, ...nextCards], summary.accounts)
+            ),
+          };
+
+          return {
+            nextSummary,
+            result: {
+              oldCard:
+                nextSummary.cards.find((card) => card._id === cardId || card.id === cardId) || null,
+              newCard: rotatedReplacement,
+            },
+          };
+        },
+        extractResult: (data) => data.replacement,
+      }),
+    [executeWithBankingFallback]
+  );
+
+  const getCardDetails = useCallback(
+    async (cardId) => {
+      const cachedDetails = cardDetailsById[cardId];
+      if (cachedDetails) {
+        return cachedDetails;
+      }
+
+      let details;
+
+      if (dataModeRef.current !== "local") {
+        try {
+          const response = await API.get(`/banking/cards/${cardId}/details`);
+          details = response.data.details;
+        } catch (requestError) {
+          if (!shouldUseLocalFallback(requestError)) {
+            throw requestError;
+          }
+        }
+      }
+
+      if (!details) {
+        const summary = loadLocalBankingSummary(getUserStorageId(), bankingStateRef.current);
+        const targetCard =
+          summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
+
+        if (!targetCard) {
+          throw new Error("Card not found.");
+        }
+
+        details = {
+          cardId: targetCard._id,
+          cardType: targetCard.cardType,
+          cardName: targetCard.cardName,
+          last4Digits: targetCard.last4Digits,
+          expiryDate: targetCard.expiryDate,
+          status: targetCard.status,
+          maskedPan: buildMaskedPan(targetCard.last4Digits),
+          cvv: buildSimulatedCvv(targetCard._id),
+        };
+      }
+
+      setCardDetailsById((current) => ({
+        ...current,
+        [cardId]: details,
+      }));
+
+      return details;
+    },
+    [cardDetailsById]
+  );
+
   const value = useMemo(
     () => ({
       accounts,
@@ -1078,6 +1352,7 @@ export function AccountProvider({ children }) {
       selectedTransactions,
       allCards,
       allTransactions,
+      cardDetailsById,
       hasActiveAccount,
       isLoading,
       error,
@@ -1096,6 +1371,9 @@ export function AccountProvider({ children }) {
       },
       createCard,
       updateCard,
+      freezeCard,
+      replaceCard,
+      getCardDetails,
       settleTransaction,
       depositFunds,
       withdrawFunds,
@@ -1106,15 +1384,19 @@ export function AccountProvider({ children }) {
       accounts,
       allCards,
       allTransactions,
+      cardDetailsById,
       createCard,
       dashboardSummary,
       depositFunds,
       error,
+      freezeCard,
+      getCardDetails,
       hasActiveAccount,
       insightsSummary,
       isLoading,
       payBill,
       refreshSummary,
+      replaceCard,
       selectedAccount,
       selectedAccountId,
       selectedCards,

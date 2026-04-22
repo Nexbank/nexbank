@@ -45,7 +45,7 @@ function Section({ label, children }) {
   );
 }
 
-// Simplified Help Center Modal
+// Help Center Modal
 function HelpCenterModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
@@ -64,71 +64,36 @@ function HelpCenterModal({ isOpen, onClose }) {
               <h2 className="cards-modal-title">Help Center</h2>
               <p className="cards-modal-copy">Quick answers to common questions</p>
             </div>
-            <button
-              type="button"
-              className="cards-modal-close"
-              onClick={onClose}
-            >
-              ×
-            </button>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
           </div>
 
           <div style={{ padding: "0 0 20px 0" }}>
-            {/* FAQ Section - Shortened */}
             <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ 
-                fontSize: "16px", 
-                fontWeight: "700", 
-                marginBottom: "12px",
-                color: "var(--color-primary)"
-              }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "12px", color: "var(--color-primary)" }}>
                 Top Questions
               </h3>
               
               <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>
-                  🔐 How to reset password?
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                  Click "Forgot Password" on login page
-                </div>
+                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>🔐 How to reset password?</div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Click "Forgot Password" on login page</div>
               </div>
 
               <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>
-                  💳 Lost or stolen card?
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                  Call 24/7 support: +27 800 123 456
-                </div>
+                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>💳 Lost or stolen card?</div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Call 24/7 support: +27 800 123 456</div>
               </div>
 
               <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>
-                  ⏱️ Transfer times?
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                  Internal: Instant | External: 1-2 days
-                </div>
+                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>⏱️ Transfer times?</div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Internal: Instant | External: 1-2 days</div>
               </div>
             </div>
 
-            {/* Contact Support - Simplified */}
             <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ 
-                fontSize: "16px", 
-                fontWeight: "700", 
-                marginBottom: "12px",
-                color: "var(--color-primary)"
-              }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "12px", color: "var(--color-primary)" }}>
                 Contact Us
               </h3>
-              <div style={{ 
-                background: "rgba(255,255,255,0.04)", 
-                padding: "12px", 
-                borderRadius: "12px",
-                fontSize: "13px"
-              }}>
+              <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "12px", fontSize: "13px" }}>
                 <p>📞 Phone: +27 800 123 456</p>
                 <p>✉️ Email: support@nexbank.co.za</p>
                 <p>💬 WhatsApp: +27 81 234 5678</p>
@@ -137,9 +102,7 @@ function HelpCenterModal({ isOpen, onClose }) {
           </div>
 
           <div className="cards-form-actions">
-            <button type="button" className="cards-form-cancel" onClick={onClose}>
-              Close
-            </button>
+            <button type="button" className="cards-form-cancel" onClick={onClose}>Close</button>
           </div>
         </div>
       </div>
@@ -147,7 +110,7 @@ function HelpCenterModal({ isOpen, onClose }) {
   );
 }
 
-// Simplified About NexBank Modal
+// About NexBank Modal
 function AboutModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
@@ -166,76 +129,40 @@ function AboutModal({ isOpen, onClose }) {
               <h2 className="cards-modal-title">About NexBank</h2>
               <p className="cards-modal-copy">Your trusted digital banking partner</p>
             </div>
-            <button
-              type="button"
-              className="cards-modal-close"
-              onClick={onClose}
-            >
-              ×
-            </button>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
           </div>
 
           <div style={{ padding: "0 0 20px 0", textAlign: "center" }}>
-            {/* Logo */}
             <div style={{ 
-              width: "60px", 
-              height: "60px", 
-              background: "linear-gradient(135deg, var(--color-primary), #00e089)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              width: "60px", height: "60px", background: "linear-gradient(135deg, var(--color-primary), #00e089)",
+              borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
               margin: "0 auto 12px"
             }}>
               <span style={{ fontSize: "30px", color: "#000" }}>N</span>
             </div>
             
-            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>
-              NexBank
-            </h3>
-            <p style={{ color: "var(--color-primary)", fontSize: "12px", marginBottom: "16px" }}>
-              Version 2.4.0
-            </p>
+            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>NexBank</h3>
+            <p style={{ color: "var(--color-primary)", fontSize: "12px", marginBottom: "16px" }}>Version 2.4.0</p>
 
-            {/* Quick Stats */}
-            <div style={{ 
-              display: "grid", 
-              gridTemplateColumns: "repeat(2, 1fr)", 
-              gap: "12px",
-              marginBottom: "16px"
-            }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: "16px" }}>
               <div style={{ background: "rgba(255,255,255,0.04)", padding: "8px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>
-                  500K+
-                </div>
+                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>500K+</div>
                 <div style={{ fontSize: "11px" }}>Users</div>
               </div>
               <div style={{ background: "rgba(255,255,255,0.04)", padding: "8px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>
-                  24/7
-                </div>
+                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>24/7</div>
                 <div style={{ fontSize: "11px" }}>Support</div>
               </div>
             </div>
 
-            {/* Mission - Short */}
             <p style={{ fontSize: "13px", color: "var(--color-text-muted)", marginBottom: "16px", lineHeight: "1.5" }}>
               Secure, accessible banking for all South Africans.
             </p>
 
-            {/* Security */}
-            <div style={{ 
-              background: "rgba(0,200,122,0.1)", 
-              padding: "8px", 
-              borderRadius: "8px",
-              marginBottom: "16px"
-            }}>
-              <p style={{ fontSize: "12px", margin: "0" }}>
-                🔒 Licensed by SARB • 256-bit SSL Encryption
-              </p>
+            <div style={{ background: "rgba(0,200,122,0.1)", padding: "8px", borderRadius: "8px", marginBottom: "16px" }}>
+              <p style={{ fontSize: "12px", margin: "0" }}>🔒 Licensed by SARB • 256-bit SSL Encryption</p>
             </div>
 
-            {/* Social */}
             <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
               <span style={{ fontSize: "20px", cursor: "pointer" }}>📘</span>
               <span style={{ fontSize: "20px", cursor: "pointer" }}>🐦</span>
@@ -244,9 +171,7 @@ function AboutModal({ isOpen, onClose }) {
           </div>
 
           <div className="cards-form-actions">
-            <button type="button" className="cards-form-cancel" onClick={onClose}>
-              Close
-            </button>
+            <button type="button" className="cards-form-cancel" onClick={onClose}>Close</button>
           </div>
         </div>
       </div>
@@ -268,8 +193,9 @@ export default function SettingsPage() {
   const [pinMessage, setPinMessage] = useState("");
   const [pinError, setPinError] = useState("");
 
+  // LOAD SETTINGS WHEN PAGE OPENS
   useEffect(() => {
-    const fetchPreferences = async () => {
+    const fetchSettings = async () => {
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
 
@@ -280,7 +206,7 @@ export default function SettingsPage() {
 
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/users/preferences/${userId}`,
+          `http://localhost:5000/api/settings/${userId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -301,10 +227,11 @@ export default function SettingsPage() {
       }
     };
 
-    fetchPreferences();
+    fetchSettings();
   }, []);
 
-  const savePreferences = async (updatedSettings) => {
+  // SAVE SETTINGS WHEN TOGGLED
+  const saveSettings = async (updatedSettings) => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
@@ -314,7 +241,7 @@ export default function SettingsPage() {
 
     try {
       await axios.put(
-        `http://localhost:5000/api/users/preferences/${userId}`,
+        `http://localhost:5000/api/settings/${userId}`,
         {
           twoFactor: updatedSettings.biometric,
           pushNotifications: updatedSettings.txAlerts,
@@ -327,25 +254,24 @@ export default function SettingsPage() {
           },
         }
       );
+      // Show success message
+      alert("Settings saved!");
     } catch (error) {
       console.error("Failed to save settings:", error);
+      alert("Failed to save settings");
     }
   };
 
   const toggle = async (key) => {
     const updated = { ...settings, [key]: !settings[key] };
     setSettings(updated);
-    await savePreferences(updated);
+    await saveSettings(updated);
   };
 
   const openPinModal = () => {
     setPinMessage("");
     setPinError("");
-    setPinForm({
-      currentPin: "",
-      newPin: "",
-      confirmPin: "",
-    });
+    setPinForm({ currentPin: "", newPin: "", confirmPin: "" });
     setIsPinModalOpen(true);
   };
 
@@ -479,80 +405,38 @@ export default function SettingsPage() {
       {/* PIN Change Modal */}
       {isPinModalOpen && (
         <div className="cards-modal-backdrop" role="presentation" onClick={closePinModal}>
-          <div
-            className="cards-modal modal-dialog modal-dialog-centered"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="cards-modal modal-dialog modal-dialog-centered" role="dialog" onClick={(event) => event.stopPropagation()}>
             <div className="cards-modal-content modal-content">
               <div className="cards-modal-header">
                 <div>
                   <h2 className="cards-modal-title">Change PIN</h2>
                   <p className="cards-modal-copy">Update your security PIN</p>
                 </div>
-                <button
-                  type="button"
-                  className="cards-modal-close"
-                  onClick={closePinModal}
-                >
-                  ×
-                </button>
+                <button type="button" className="cards-modal-close" onClick={closePinModal}>×</button>
               </div>
 
               <form className="cards-form row g-3" onSubmit={savePin}>
                 <div className="col-12">
                   <label className="cards-form-label">Current PIN</label>
-                  <input
-                    name="currentPin"
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.currentPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <input name="currentPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.currentPin} onChange={handlePinChange} required />
                 </div>
 
                 <div className="col-12 col-md-6">
                   <label className="cards-form-label">New PIN</label>
-                  <input
-                    name="newPin"
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.newPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <input name="newPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.newPin} onChange={handlePinChange} required />
                 </div>
 
                 <div className="col-12 col-md-6">
                   <label className="cards-form-label">Confirm PIN</label>
-                  <input
-                    name="confirmPin"
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.confirmPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <input name="confirmPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.confirmPin} onChange={handlePinChange} required />
                 </div>
 
                 {pinError && <div className="col-12 text-danger">{pinError}</div>}
                 {pinMessage && <div className="col-12 text-success">{pinMessage}</div>}
 
                 <div className="col-12 cards-form-actions">
-                  <button type="button" className="cards-form-cancel" onClick={closePinModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="cards-form-submit">
-                    Save PIN
-                  </button>
+                  <button type="button" className="cards-form-cancel" onClick={closePinModal}>Cancel</button>
+                  <button type="submit" className="cards-form-submit">Save PIN</button>
                 </div>
               </form>
             </div>
@@ -560,10 +444,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Help Center Modal */}
       <HelpCenterModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
-
-      {/* About NexBank Modal */}
       <AboutModal isOpen={isAboutModalOpen} onClose={closeAboutModal} />
     </div>
   );

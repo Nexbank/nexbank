@@ -1,53 +1,54 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import TransactionList from "../components/TransactionList";
-import { useAccount } from "../context/AccountContext";
-
-const normalizeCardType = (value = "") => {
-  const normalized = String(value).trim().toLowerCase();
-
-  if (normalized === "virtual" || normalized === "virtual card") {
-    return "virtual";
-  }
-
-  if (normalized === "physical" || normalized === "physical card") {
-    return "physical";
-  }
-
-  return "";
-};
-
-const resolveTransactionCardType = (transaction) =>
-  normalizeCardType(
-    transaction.cardType ||
-      transaction.metadata?.cardType ||
-      transaction.card?.cardType ||
-      transaction.card?.type
-  );
+import API from "../services/api";
 
 export default function Transactions() {
   const [search, setSearch] = useState("");
-  const [cardFilter, setCardFilter] = useState("all");
-  const { selectedAccount, selectedTransactions } = useAccount();
+  const [transactions, setTransactions] = useState([]);
+  const navigate = useNavigate();
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (error) {
+      return {};
+    }
+  }, []);
 
-  const visibleTransactions = useMemo(
-    () =>
-      selectedTransactions.filter((transaction) => {
-        const query = search.toLowerCase();
-        const matchesSearch =
-          (transaction.description || "").toLowerCase().includes(query) ||
-          (transaction.reference || "").toLowerCase().includes(query) ||
-          (transaction.type || "").toLowerCase().includes(query) ||
-          (transaction.status || "").toLowerCase().includes(query);
-        const transactionCardType = resolveTransactionCardType(transaction);
-        const matchesCardFilter =
-          cardFilter === "all" ? true : transactionCardType === cardFilter;
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await API.get("/banking/transactions");
+        setTransactions(response.data.transactions || []);
+      } catch (error) {
+        if (error.response?.status === 401) {
+          navigate("/login");
+        }
+      }
+    };
 
-        return matchesSearch && matchesCardFilter;
-      }),
-    [cardFilter, search, selectedTransactions]
-  );
+    fetchTransactions();
+  }, [navigate]);
+
+  const filtered = transactions.filter((transaction) => {
+    const searchValue = search.toLowerCase();
+
+    return (
+      (transaction.name || transaction.reference || "").toLowerCase().includes(searchValue) ||
+      (transaction.category || "").toLowerCase().includes(searchValue) ||
+      (transaction.type || "").toLowerCase().includes(searchValue) ||
+      (transaction.status || "").toLowerCase().includes(searchValue)
+    );
+  });
+
+  const userName =
+    storedUser.firstname ||
+    storedUser.displayName?.split(" ")[0] ||
+    storedUser.email?.split("@")[0] ||
+    "User";
 
   if (!selectedAccount) {
     return null;
@@ -58,36 +59,20 @@ export default function Transactions() {
       <Sidebar />
 
       <div className="main">
-        <Navbar search={search} setSearch={setSearch} />
+        <Navbar userName={userName} searchPlaceholder="Search by reference, category, type..." />
 
         <div className="content">
-          <h2>{selectedAccount.name} Transactions</h2>
-          <p className="action-helper">
-            Every transaction shown here belongs to your currently selected account.
-          </p>
-
-          <div className="d-flex gap-2 flex-wrap mb-3">
-            {[
-              { label: "All", value: "all" },
-              { label: "Virtual Card", value: "virtual" },
-              { label: "Physical Card", value: "physical" },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`action-button ${
-                  cardFilter === option.value
-                    ? "action-button--primary"
-                    : "action-button--ghost"
-                }`}
-                onClick={() => setCardFilter(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <h2>Transactions</h2>
+          <div className="action-search-shell">
+            <input
+              className="action-form__input"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Filter transactions"
+            />
           </div>
-
-          <TransactionList transactions={visibleTransactions} />
+          <TransactionList transactions={filtered} />
         </div>
       </div>
     </div>

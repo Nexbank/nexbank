@@ -4,15 +4,15 @@ const API = axios.create({
   baseURL: "http://localhost:5000/api",
 });
 
-API.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem("token");
+// ✅ ADD THIS
+API.interceptors.request.use((req) => {
+  const token = localStorage.getItem("token");
 
   if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
+    req.headers.Authorization = `Bearer ${token}`;
   }
 
-  return config;
+  return req;
 });
 
 export default API;

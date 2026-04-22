@@ -1,53 +1,10 @@
+import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import {
-  FiShoppingBag,
-  FiCoffee,
-  FiTruck,
-  FiSmartphone,
-  FiZap,
-} from "react-icons/fi";
+import API from "../services/api";
+import { buildInsightsItems, formatCurrency } from "../utils/banking";
 
-const monthlySpending = [
-  {
-    name: "Groceries",
-    amount: 4500,
-    color: "#19c88a",
-    icon: FiShoppingBag,
-  },
-  {
-    name: "Dining",
-    amount: 1200,
-    color: "#4b8cff",
-    icon: FiCoffee,
-  },
-  {
-    name: "Transport",
-    amount: 800,
-    color: "#ff8a1e",
-    icon: FiTruck,
-  },
-  {
-    name: "Entertainment",
-    amount: 500,
-    color: "#a855f7",
-    icon: FiSmartphone,
-  },
-  {
-    name: "Utilities",
-    amount: 2000,
-    color: "#ff4747",
-    icon: FiZap,
-  },
-];
-
-const totalSpent = monthlySpending.reduce((sum, item) => sum + item.amount, 0);
-
-function formatCurrency(amount) {
-  return `R${amount.toLocaleString("en-ZA")}`;
-}
-
-function InsightsDonut() {
+function InsightsDonut({ items, totalSpent }) {
   const radius = 74;
   const circumference = 2 * Math.PI * radius;
   const gap = 8;
@@ -70,9 +27,8 @@ function InsightsDonut() {
           strokeWidth="28"
         />
 
-        {monthlySpending.map((item) => {
-          const segmentLength =
-            (item.amount / totalSpent) * circumference - gap;
+        {items.map((item) => {
+          const segmentLength = (item.amount / totalSpent) * circumference - gap;
           const dashArray = `${Math.max(segmentLength, 0)} ${circumference}`;
           const circleOffset = -offset;
 
@@ -100,12 +56,50 @@ function InsightsDonut() {
 }
 
 export default function Insights() {
+  const [overview, setOverview] = useState({
+    insights: { totalSpent: 0, breakdown: [] },
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (error) {
+      return {};
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        setIsLoading(true);
+        const response = await API.get("/banking/overview");
+        setOverview(response.data);
+      } catch (error) {
+        setOverview({
+          insights: { totalSpent: 0, breakdown: [] },
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, []);
+
+  const monthlySpending = buildInsightsItems(overview.insights.breakdown);
+  const totalSpent = overview.insights.totalSpent;
+  const userName =
+    storedUser.firstname ||
+    storedUser.displayName?.split(" ")[0] ||
+    storedUser.email?.split("@")[0] ||
+    "User";
+
   return (
     <div className="dashboard-page insights-page">
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar userName="Nozwelo" />
+        <Navbar userName={userName} />
 
         <main className="dashboard-content-area insights-content-area">
           <section className="insights-panel">
@@ -115,13 +109,11 @@ export default function Insights() {
 
             <div className="insights-grid">
               <article className="insights-chart-card">
-                <InsightsDonut />
+                {totalSpent > 0 ? <InsightsDonut items={monthlySpending} totalSpent={totalSpent} /> : null}
 
                 <div className="insights-total">
                   <p className="insights-total-label">TOTAL SPENT</p>
-                  <h2 className="insights-total-value">
-                    {formatCurrency(totalSpent)}.00
-                  </h2>
+                  <h2 className="insights-total-value">{formatCurrency(totalSpent)}</h2>
                 </div>
               </article>
 
@@ -129,42 +121,59 @@ export default function Insights() {
                 <p className="insights-breakdown-label">CATEGORY BREAKDOWN</p>
 
                 <div className="insights-breakdown-list">
-                  {monthlySpending.map((item) => {
-                    const Icon = item.icon;
-                    const percentage = (item.amount / totalSpent) * 100;
-
-                    return (
-                      <article className="insights-category-card" key={item.name}>
-                        <div
-                          className="insights-category-icon"
-                          style={{ backgroundColor: item.color }}
-                        >
-                          <Icon size={18} />
+                  {isLoading ? (
+                    <article className="insights-category-card">
+                      <div className="insights-category-main">
+                        <div className="insights-category-header">
+                          <span className="insights-category-name">Loading insights...</span>
                         </div>
+                      </div>
+                    </article>
+                  ) : monthlySpending.length === 0 ? (
+                    <article className="insights-category-card">
+                      <div className="insights-category-main">
+                        <div className="insights-category-header">
+                          <span className="insights-category-name">No spending captured yet</span>
+                          <span className="insights-category-amount">{formatCurrency(0)}</span>
+                        </div>
+                      </div>
+                    </article>
+                  ) : (
+                    monthlySpending.map((item) => {
+                      const Icon = item.icon;
+                      const percentage = (item.amount / totalSpent) * 100;
 
-                        <div className="insights-category-main">
-                          <div className="insights-category-header">
-                            <span className="insights-category-name">
-                              {item.name}
-                            </span>
-                            <span className="insights-category-amount">
-                              {formatCurrency(item.amount)}
-                            </span>
+                      return (
+                        <article className="insights-category-card" key={item.name}>
+                          <div
+                            className="insights-category-icon"
+                            style={{ backgroundColor: item.color }}
+                          >
+                            <Icon size={18} />
                           </div>
 
-                          <div className="insights-progress-track">
-                            <span
-                              className="insights-progress-fill"
-                              style={{
-                                width: `${percentage}%`,
-                                backgroundColor: item.color,
-                              }}
-                            />
+                          <div className="insights-category-main">
+                            <div className="insights-category-header">
+                              <span className="insights-category-name">{item.name}</span>
+                              <span className="insights-category-amount">
+                                {formatCurrency(item.amount)}
+                              </span>
+                            </div>
+
+                            <div className="insights-progress-track">
+                              <span
+                                className="insights-progress-fill"
+                                style={{
+                                  width: `${percentage}%`,
+                                  backgroundColor: item.color,
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </article>
-                    );
-                  })}
+                        </article>
+                      );
+                    })
+                  )}
                 </div>
               </section>
             </div>

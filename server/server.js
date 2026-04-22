@@ -17,11 +17,12 @@ app.use(cors());
 
 app.use(express.json());
 
-// Routes
-
+// routes
 const authRoutes = require("./routes/authRoutes");
+const profileRoutes = require("./routes/profile");
 const bankingRoutes = require("./routes/bankingRoutes");
 
+app.use("/api/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/banking", bankingRoutes);
 

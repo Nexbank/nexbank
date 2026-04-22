@@ -1,151 +1,95 @@
-import { useMemo, useState } from "react";
-import {
-  FiArrowUpRight,
-  FiCheckCircle,
-  FiClock,
-  FiDollarSign,
-  FiShield,
-  FiSmartphone,
-} from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { FiArrowUpRight, FiX } from "react-icons/fi";
+import { spendingCategories } from "../constants/transactionCategories";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { useAccount } from "../context/AccountContext";
-import { formatCurrency } from "../utils/currency";
-
-const payoutBanks = [
-  "Absa",
-  "Capitec",
-  "Discovery Bank",
-  "FNB",
-  "Nedbank",
-  "Standard Bank",
-  "TymeBank",
-  "Nexbank",
-];
-
-const payoutChannels = [
-  {
-    id: "bank-transfer",
-    title: "Existing bank account",
-    description: "Withdraw to a bank account you already use outside NexBank.",
-  },
-  {
-    id: "atm-code",
-    title: "Cash code",
-    description: "Generate a short-lived code for supported ATM collection.",
-  },
-];
-
-const initialForm = {
-  payoutChannel: "bank-transfer",
-  bankName: "FNB",
-  accountType: "Cheque",
-  beneficiaryName: "",
-  accountNumber: "",
-  amount: "",
-  note: "",
-};
+import API from "../services/api";
+import { formatCurrency } from "../utils/banking";
 
 export default function Withdraw() {
-  const { selectedAccount, withdrawFunds } = useAccount();
-  const [formData, setFormData] = useState(initialForm);
-  const [errors, setErrors] = useState({});
-  const [receipt, setReceipt] = useState(null);
-  const [status, setStatus] = useState("idle");
-  const [submitError, setSubmitError] = useState("");
+  const navigate = useNavigate();
+  const [overview, setOverview] = useState({ account: { balance: 0, accountNumber: "" } });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    amount: "",
+    fee: "0",
+    category: spendingCategories[0],
+    reference: "",
+    status: "Completed",
+  });
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (error) {
+      return {};
+    }
+  }, []);
 
-  const amountValue = Number(formData.amount || 0);
-  const formattedAmount = useMemo(() => formatCurrency(formData.amount), [formData.amount]);
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const response = await API.get("/banking/overview");
+        setOverview(response.data);
+      } catch (error) {
+        if (error.response?.status === 401) {
+          navigate("/login");
+        }
+      }
+    };
 
-  const setField = (field) => (event) => {
-    const value = event.target.value;
-    setFormData((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: "" }));
-    setSubmitError("");
+    fetchOverview();
+  }, [navigate]);
+
+  const handleChange = (event) => {
+    setForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const nextErrors = {};
-
-    if (!formData.beneficiaryName.trim()) {
-      nextErrors.beneficiaryName = "Enter the beneficiary name.";
-    }
-
-    if (!/^\d{6,12}$/.test(formData.accountNumber.trim())) {
-      nextErrors.accountNumber = "Use 6 to 12 digits for the receiving account.";
-    }
-
-    if (!amountValue) {
-      nextErrors.amount = "Enter an amount to withdraw.";
-    }
-
-    if (!formData.note.trim()) {
-      nextErrors.note = "Add a note so this payout is easy to recognise.";
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
+    if (!form.amount || Number(form.amount) <= 0) {
+      alert("Please enter a valid withdrawal amount.");
       return;
     }
 
-    setStatus("submitting");
-    setSubmitError("");
-
     try {
-      await withdrawFunds({
-        amount: amountValue,
-        bankName: formData.bankName,
-        payoutChannel: formData.payoutChannel,
-        beneficiaryName: formData.beneficiaryName,
-        accountNumber: formData.accountNumber,
-        accountType: formData.accountType,
-        note: formData.note,
+      setIsSubmitting(true);
+      await API.post("/banking/withdraw", {
+        amount: Number(form.amount),
+        fee: Number(form.fee || 0),
+        category: form.category,
+        reference: form.reference,
+        status: form.status,
       });
 
-      setReceipt({
-        amount: formattedAmount,
-        bankName: formData.bankName,
-        beneficiaryName: formData.beneficiaryName,
-        eta:
-          formData.payoutChannel === "atm-code"
-            ? "ready in under 5 minutes"
-            : "sent within 60 minutes",
-      });
-      setErrors({});
-      setStatus("success");
-    } catch (requestError) {
-      const message =
-        requestError.response?.data?.error || requestError.message || "Withdrawal failed.";
-
-      setErrors((current) => ({
-        ...current,
-        amount: current.amount || message,
-      }));
-      setSubmitError(message);
-      setStatus("idle");
+      setIsModalOpen(false);
+      alert("Withdrawal completed successfully.");
+      navigate("/dashboard");
+    } catch (error) {
+      const message = error.response?.data?.error || "Withdrawal failed. Please try again.";
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const resetFlow = () => {
-    setFormData(initialForm);
-    setErrors({});
-    setReceipt(null);
-    setSubmitError("");
-    setStatus("idle");
-  };
-
-  if (!selectedAccount) {
-    return null;
-  }
+  const userName =
+    storedUser.firstname ||
+    storedUser.displayName?.split(" ")[0] ||
+    storedUser.email?.split("@")[0] ||
+    "User";
 
   return (
     <div className="dashboard-page">
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar />
+        <Navbar userName={userName} />
 
         <main className="dashboard-content-area">
           <div className="container-fluid px-0 dashboard-shell">
@@ -164,214 +108,148 @@ export default function Withdraw() {
                 </div>
               </div>
 
-              <div className="action-workspace">
-                <div className="action-workspace__main">
-                  <section className="action-panel">
-                    <div className="action-panel__header">
-                      <div>
-                        <p className="action-panel__eyebrow">Payout route</p>
-                        <h2 className="action-panel__title">Choose where the money goes</h2>
-                      </div>
-                    </div>
+              <div className="action-page__grid">
+                <article className="action-panel">
+                  <p className="action-panel__label">Available balance</p>
+                  <h2 className="action-panel__value">{formatCurrency(overview.account.balance)}</h2>
+                  <p className="action-panel__meta">
+                    Account: {overview.account.accountNumber || "Main account"}
+                  </p>
+                </article>
 
-                    <div className="action-option-grid">
-                      {payoutChannels.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          className={`action-option-card ${
-                            formData.payoutChannel === option.id
-                              ? "action-option-card--active"
-                              : ""
-                          }`}
-                          onClick={() =>
-                            setFormData((current) => ({
-                              ...current,
-                              payoutChannel: option.id,
-                            }))
-                          }
-                        >
-                          <div>
-                            <div className="action-option-card__top">
-                              <h3>{option.title}</h3>
-                            </div>
-                            <p>{option.description}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
+                <article className="action-panel action-panel--form">
+                  <div className="action-panel__header">
+                    <h2 className="action-panel__title">Open Withdrawal Modal</h2>
+                    <p className="action-panel__copy">
+                      Capture the withdrawal details from the transaction model before posting.
+                    </p>
+                  </div>
 
-                  <section className="action-panel">
-                    <div className="action-panel__header">
-                      <div>
-                        <p className="action-panel__eyebrow">Existing bank</p>
-                        <h2 className="action-panel__title">Withdrawal destination</h2>
-                      </div>
-                    </div>
-
-                    <form className="action-form" onSubmit={handleSubmit}>
-                      <div className="action-form__grid">
-                        <label className="action-form__field">
-                          <span>Bank name</span>
-                          <select value={formData.bankName} onChange={setField("bankName")}>
-                            {payoutBanks.map((bank) => (
-                              <option key={bank} value={bank}>
-                                {bank}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label className="action-form__field">
-                          <span>Account type</span>
-                          <select value={formData.accountType} onChange={setField("accountType")}>
-                            <option value="Cheque">Cheque</option>
-                            <option value="Savings">Savings</option>
-                            <option value="Transmission">Transmission</option>
-                          </select>
-                        </label>
-
-                        <label className="action-form__field">
-                          <span>Beneficiary name</span>
-                          <input
-                            type="text"
-                            placeholder="Name on receiving account"
-                            value={formData.beneficiaryName}
-                            onChange={setField("beneficiaryName")}
-                          />
-                          {errors.beneficiaryName ? <small>{errors.beneficiaryName}</small> : null}
-                        </label>
-
-                        <label className="action-form__field">
-                          <span>Account number</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="e.g. 6214567890"
-                            value={formData.accountNumber}
-                            onChange={setField("accountNumber")}
-                          />
-                          {errors.accountNumber ? <small>{errors.accountNumber}</small> : null}
-                        </label>
-
-                        <label className="action-form__field">
-                          <span>Withdrawal amount</span>
-                          <input
-                            type="number"
-                            min="100"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={formData.amount}
-                            onChange={setField("amount")}
-                          />
-                          {errors.amount ? <small>{errors.amount}</small> : null}
-                        </label>
-
-                        <label className="action-form__field">
-                          <span>Reference note</span>
-                          <input
-                            type="text"
-                            placeholder="Why are you withdrawing?"
-                            value={formData.note}
-                            onChange={setField("note")}
-                          />
-                          {errors.note ? <small>{errors.note}</small> : null}
-                        </label>
-                      </div>
-
-                      <div className="action-form__actions">
-                        <button
-                          type="button"
-                          className="action-button action-button--ghost"
-                          onClick={resetFlow}
-                        >
-                          Reset
-                        </button>
-                        <button
-                          type="submit"
-                          className="action-button action-button--primary action-button--blue"
-                          disabled={status === "submitting"}
-                        >
-                          {status === "submitting" ? "Processing..." : "Confirm withdrawal"}
-                        </button>
-                      </div>
-                    </form>
-                  </section>
-                </div>
-
-                <aside className="action-summary">
-                  <section className="action-panel action-panel--summary">
-                    <div className="action-summary__card action-summary__card--blue">
-                      <span className="action-summary__icon">
-                        <FiDollarSign size={20} />
-                      </span>
-                      <div>
-                        <p className="action-summary__label">Withdrawal total</p>
-                        <h3 className="action-summary__amount">{formattedAmount}</h3>
-                      </div>
-                    </div>
-
-                    <div className="action-checklist">
-                      <div className="action-checklist__item">
-                        <FiShield size={16} />
-                        <span>Withdrawals are recorded before the payout status updates.</span>
-                      </div>
-                      <div className="action-checklist__item">
-                        <FiClock size={16} />
-                        <span>Some payouts stay pending while the bank confirms the request.</span>
-                      </div>
-                      <div className="action-checklist__item">
-                        <FiSmartphone size={16} />
-                        <span>Cash code withdrawals are issued as short-lived collections.</span>
-                      </div>
-                    </div>
-                    {submitError ? (
-                      <small className="action-helper action-helper--error">{submitError}</small>
-                    ) : null}
-                  </section>
-
-                  {status === "success" && receipt ? (
-                    <section className="action-panel action-panel--success">
-                      <div className="action-success">
-                        <span className="action-success__icon">
-                          <FiCheckCircle size={22} />
-                        </span>
-                        <div>
-                          <h2>Withdrawal requested</h2>
-                          <p>
-                            {receipt.amount} for {receipt.beneficiaryName} via {receipt.bankName} is{" "}
-                            {receipt.eta}.
-                          </p>
-                        </div>
-                      </div>
-
-                      <dl className="action-receipt">
-                        <div>
-                          <dt>Account</dt>
-                          <dd>{selectedAccount.name}</dd>
-                        </div>
-                        <div>
-                          <dt>Status</dt>
-                          <dd>Queued for settlement</dd>
-                        </div>
-                      </dl>
-
-                      <button
-                        type="button"
-                        className="action-button action-button--primary action-button--full"
-                        onClick={resetFlow}
-                      >
-                        New withdrawal
-                      </button>
-                    </section>
-                  ) : null}
-                </aside>
+                  <button
+                    type="button"
+                    className="action-form__button"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    Enter Withdrawal Details
+                  </button>
+                </article>
               </div>
             </section>
           </div>
         </main>
       </div>
+
+      {isModalOpen && (
+        <div className="action-modal-backdrop" role="presentation">
+          <div
+            className="action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="withdraw-modal-title"
+          >
+            <div className="action-modal__header">
+              <div>
+                <p className="action-panel__label">Transaction model</p>
+                <h2 className="action-modal__title" id="withdraw-modal-title">
+                  Withdraw Funds
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="action-modal__close"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Close withdrawal modal"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <form className="action-form" onSubmit={handleSubmit}>
+              <label className="action-form__field">
+                <span>Type</span>
+                <input className="action-form__input" type="text" value="withdrawal" readOnly />
+              </label>
+
+              <label className="action-form__field">
+                <span>Amount</span>
+                <input
+                  className="action-form__input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  name="amount"
+                  value={form.amount}
+                  onChange={handleChange}
+                  placeholder="Enter withdrawal amount"
+                />
+              </label>
+
+              <label className="action-form__field">
+                <span>Fee</span>
+                <input
+                  className="action-form__input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="fee"
+                  value={form.fee}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                />
+              </label>
+
+              <label className="action-form__field">
+                <span>Category</span>
+                <select
+                  className="action-form__input"
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                >
+                  {spendingCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="action-form__field">
+                <span>Reference</span>
+                <input
+                  className="action-form__input"
+                  type="text"
+                  name="reference"
+                  value={form.reference}
+                  onChange={handleChange}
+                  placeholder="e.g. Electricity payment"
+                />
+              </label>
+
+              <label className="action-form__field">
+                <span>Status</span>
+                <select
+                  className="action-form__input"
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                >
+                  <option value="Completed">Completed</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </label>
+
+              <div className="action-modal__summary">
+                Total debit: {formatCurrency(Number(form.amount || 0) + Number(form.fee || 0))}
+              </div>
+
+              <button className="action-form__button" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Posting withdrawal..." : "Confirm Withdrawal"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

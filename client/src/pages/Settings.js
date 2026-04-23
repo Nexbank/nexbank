@@ -1,24 +1,14 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import Swal from "sweetalert2";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 
 const DEFAULT_SETTINGS_STATE = {
-  biometric: true,
+  biometric: false,
   privacy: true,
   txAlerts: true,
   doNotDisturb: false,
-};
-
-const DEFAULT_SETTINGS_META = {
-  language: "en",
-  cardPin: "12345",
-  cardNumber: "",
-  cardPreferences: {},
-  notificationPreferences: {
-    transactionAlerts: true,
-    doNotDisturb: false,
-  },
 };
 
 function Toggle({ on, onToggle }) {
@@ -37,17 +27,12 @@ function SettingRow({ icon, title, subtitle, toggle, onToggle, chevron, onClick 
       style={onClick ? { cursor: "pointer" } : undefined}
     >
       <div className="setting-icon">{icon}</div>
-
       <div className="setting-text">
         <div className="setting-title">{title}</div>
         <div className="setting-subtitle">{subtitle}</div>
       </div>
-
-      {toggle !== undefined && (
-        <Toggle on={toggle} onToggle={onToggle} />
-      )}
-
-      {chevron && <span className="setting-chevron">⚙️</span>}
+      {toggle !== undefined && <Toggle on={toggle} onToggle={onToggle} />}
+      {chevron && <span className="setting-chevron">→</span>}
     </div>
   );
 }
@@ -61,10 +46,138 @@ function Section({ label, children }) {
   );
 }
 
+// Help Center Modal - NO INLINE STYLES
+function HelpCenterModal({ isOpen, onClose }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="cards-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="cards-modal modal-dialog modal-dialog-centered"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="cards-modal-content modal-content">
+          <div className="cards-modal-header">
+            <div>
+              <h2 className="cards-modal-title">Help Center</h2>
+              <p className="cards-modal-copy">Quick answers to common questions</p>
+            </div>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
+          </div>
+
+          <div className="help-modal-content">
+            <div className="faq-section">
+              <h3 className="faq-title">Top Questions</h3>
+              
+              <div className="faq-item">
+                <div className="faq-question">🔐 How to reset password?</div>
+                <div className="faq-answer">Click "Forgot Password" on login page</div>
+              </div>
+
+              <div className="faq-item">
+                <div className="faq-question">💳 Lost or stolen card?</div>
+                <div className="faq-answer">Call 24/7 support: +27 800 123 456</div>
+              </div>
+
+              <div className="faq-item">
+                <div className="faq-question">⏱️ Transfer times?</div>
+                <div className="faq-answer">Internal: Instant | External: 1-2 days</div>
+              </div>
+            </div>
+
+            <div className="contact-section">
+              <h3 className="contact-title">Contact Us</h3>
+              <div className="contact-info">
+                <p>📞 Phone: +27 800 123 456</p>
+                <p>✉️ Email: support@nexbank.co.za</p>
+                <p>💬 WhatsApp: +27 81 234 5678</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="cards-form-actions">
+            <button type="button" className="cards-form-cancel" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// About NexBank Modal - NO INLINE STYLES
+function AboutModal({ isOpen, onClose }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="cards-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="cards-modal modal-dialog modal-dialog-centered"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="cards-modal-content modal-content">
+          <div className="cards-modal-header">
+            <div>
+              <h2 className="cards-modal-title">About NexBank</h2>
+              <p className="cards-modal-copy">Your trusted digital banking partner</p>
+            </div>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
+          </div>
+
+          <div className="about-modal-content">
+            <div className="about-logo">
+              <div className="about-logo-circle">
+                <span>N</span>
+              </div>
+            </div>
+            
+            <h3 className="about-title">NexBank</h3>
+            <p className="about-version">Version 2.4.0</p>
+
+            <div className="about-stats">
+              <div className="about-stat">
+                <div className="about-stat-number">500K+</div>
+                <div className="about-stat-label">Users</div>
+              </div>
+              <div className="about-stat">
+                <div className="about-stat-number">24/7</div>
+                <div className="about-stat-label">Support</div>
+              </div>
+            </div>
+
+            <p className="about-mission">
+              Secure, accessible banking for all South Africans.
+            </p>
+
+            <div className="about-security">
+              <p>🔒 Licensed by SARB • 256-bit SSL Encryption</p>
+            </div>
+
+            <div className="about-social">
+              <span>📘</span>
+              <span>🐦</span>
+              <span>📷</span>
+            </div>
+          </div>
+
+          <div className="cards-form-actions">
+            <button type="button" className="cards-form-cancel" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
-  const [s, setS] = useState(DEFAULT_SETTINGS_STATE);
-  const [settingsMeta, setSettingsMeta] = useState(DEFAULT_SETTINGS_META);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS_STATE);
+  const [loading, setLoading] = useState(true);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [pinForm, setPinForm] = useState({
     currentPin: "",
     newPin: "",
@@ -73,219 +186,101 @@ export default function SettingsPage() {
   const [pinMessage, setPinMessage] = useState("");
   const [pinError, setPinError] = useState("");
 
-  const mapApiSettingsToUi = (data, previousState) => ({
-    ...previousState,
-    biometric: data?.twoFactorEnabled ?? previousState.biometric,
-    txAlerts: data?.pushNotificationsEnabled ?? previousState.txAlerts,
-    privacy: data?.theme ? data.theme === "dark" : previousState.privacy,
-    doNotDisturb: data?.doNotDisturbEnabled ?? previousState.doNotDisturb,
-  });
-
-  const buildSettingsPayload = (state, meta = settingsMeta) => ({
-    twoFactorEnabled: state.biometric,
-    pushNotificationsEnabled: state.txAlerts,
-    theme: state.privacy ? "dark" : "light",
-    language: meta?.language ?? "en",
-    doNotDisturbEnabled: state.doNotDisturb,
-    notificationPreferences: {
-      ...(meta?.notificationPreferences ?? {}),
-      transactionAlerts: state.txAlerts,
-      doNotDisturb: state.doNotDisturb,
-    },
-    cardPin: meta?.cardPin ?? "",
-    cardPreferences: meta?.cardPreferences ?? {},
-    cardNumber: meta?.cardNumber ?? "",
-  });
-
-  const updateCardSettings = async (cardUpdates = {}) => {
-    setSettingsMeta((prev) => ({
-      ...prev,
-      cardPin: cardUpdates.cardPin ?? prev.cardPin,
-      cardNumber: cardUpdates.cardNumber ?? prev.cardNumber,
-      cardPreferences: {
-        ...prev.cardPreferences,
-        ...(cardUpdates.cardPreferences ?? {}),
-      },
-    }));
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, {
-          ...settingsMeta,
-          cardPin: cardUpdates.cardPin ?? settingsMeta.cardPin,
-          cardNumber: cardUpdates.cardNumber ?? settingsMeta.cardNumber,
-          cardPreferences: {
-            ...settingsMeta.cardPreferences,
-            ...(cardUpdates.cardPreferences ?? {}),
-          },
-        })
-      );
-    } catch (error) {
-      console.error("Card settings API not ready yet:", error);
-    }
-  };
-
-  const updateAlertPreferences = async (alertUpdates = {}) => {
-    const nextState = {
-      ...s,
-      txAlerts: alertUpdates.txAlerts ?? s.txAlerts,
-      doNotDisturb: alertUpdates.doNotDisturb ?? s.doNotDisturb,
-    };
-    const nextMeta = {
-      ...settingsMeta,
-      notificationPreferences: {
-        ...settingsMeta.notificationPreferences,
-        ...(alertUpdates.notificationPreferences ?? {}),
-        transactionAlerts:
-          alertUpdates.txAlerts ?? settingsMeta.notificationPreferences.transactionAlerts,
-        doNotDisturb:
-          alertUpdates.doNotDisturb ?? settingsMeta.notificationPreferences.doNotDisturb,
-      },
-    };
-
-    setSettingsMeta(nextMeta);
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(nextState, nextMeta)
-      );
-    } catch (error) {
-      console.error("Alert preferences API not ready yet:", error);
-    }
-  };
-
-  const updateLanguageSetting = async (language) => {
-    const nextMeta = {
-      ...settingsMeta,
-      language: language ?? settingsMeta.language,
-    };
-
-    setSettingsMeta(nextMeta);
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, nextMeta)
-      );
-    } catch (error) {
-      console.error("Language settings API not ready yet:", error);
-    }
-  };
-
-  const preparedSettingsActions = {
-    updateCardSettings,
-    updateAlertPreferences,
-    updateLanguageSetting,
-  };
-  void preparedSettingsActions;
-
   useEffect(() => {
     const fetchSettings = async () => {
+      const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
 
-      if (!userId) {
+      if (!token || !userId) {
+        setLoading(false);
         return;
       }
 
       try {
-        const { data } = await axios.get(
-          `http://localhost:5000/api/settings/${userId}`
+        const response = await axios.get(
+          `http://localhost:5000/api/settings/${userId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
 
-        if (!data) {
-          return;
+        if (response.data.preferences) {
+          setSettings({
+            biometric: response.data.preferences.twoFactor || false,
+            privacy: true,
+            txAlerts: response.data.preferences.pushNotifications !== false,
+            doNotDisturb: response.data.preferences.doNotDisturb || false,
+          });
         }
-
-        setS((prev) => mapApiSettingsToUi(data, prev));
-        setSettingsMeta((prev) => ({
-          ...prev,
-          language: data?.language ?? prev.language,
-          cardPin: data?.cardPin ?? prev.cardPin,
-          cardNumber: data?.cardNumber ?? prev.cardNumber,
-          cardPreferences: data?.cardPreferences ?? prev.cardPreferences,
-          notificationPreferences: {
-            ...prev.notificationPreferences,
-            ...(data?.notificationPreferences ?? {}),
-            transactionAlerts:
-              data?.pushNotificationsEnabled ??
-              prev.notificationPreferences.transactionAlerts,
-            doNotDisturb:
-              data?.doNotDisturbEnabled ??
-              prev.notificationPreferences.doNotDisturb,
-          },
-        }));
+        setLoading(false);
       } catch (error) {
-        console.error("Failed to fetch settings:", error);
+        setLoading(false);
       }
     };
 
     fetchSettings();
   }, []);
 
-  const saveSettings = async (updatedState) => {
+  const saveSettings = async (updatedSettings) => {
+    const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
-    if (!userId) {
+    if (!token || !userId) {
       return;
     }
 
     try {
       await axios.put(
         `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(updatedState)
+        {
+          twoFactor: updatedSettings.biometric,
+          pushNotifications: updatedSettings.txAlerts,
+          doNotDisturb: updatedSettings.doNotDisturb,
+        },
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
+      return true;
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      return false;
     }
   };
 
   const toggle = async (key) => {
-    const updated = { ...s, [key]: !s[key] };
-
-    setS(updated);
-
-    if (key === "txAlerts" || key === "doNotDisturb") {
-      updateAlertPreferences({
-        txAlerts: key === "txAlerts" ? updated.txAlerts : undefined,
-        doNotDisturb: key === "doNotDisturb" ? updated.doNotDisturb : undefined,
-        notificationPreferences: {
-          transactionAlerts: updated.txAlerts,
-          doNotDisturb: updated.doNotDisturb,
-        },
+    const updated = { ...settings, [key]: !settings[key] };
+    setSettings(updated);
+    
+    const success = await saveSettings(updated);
+    
+    if (success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Settings Saved!',
+        text: 'Your preference has been updated.',
+        timer: 1500,
+        showConfirmButton: false,
+        background: '#111111',
+        color: '#e8e8e8'
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed to Save',
+        text: 'Please try again later.',
+        background: '#111111',
+        color: '#e8e8e8'
       });
     }
-
-    await saveSettings(updated);
   };
 
   const openPinModal = () => {
     setPinMessage("");
     setPinError("");
-    setPinForm({
-      currentPin: settingsMeta.cardPin ?? "",
-      newPin: "",
-      confirmPin: "",
-    });
+    setPinForm({ currentPin: "", newPin: "", confirmPin: "" });
     setIsPinModalOpen(true);
   };
 
@@ -295,13 +290,15 @@ export default function SettingsPage() {
     setIsPinModalOpen(false);
   };
 
+  const openHelpModal = () => setIsHelpModalOpen(true);
+  const closeHelpModal = () => setIsHelpModalOpen(false);
+  
+  const openAboutModal = () => setIsAboutModalOpen(true);
+  const closeAboutModal = () => setIsAboutModalOpen(false);
+
   const handlePinChange = (event) => {
     const { name, value } = event.target;
-
-    setPinForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setPinForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const savePin = async (event) => {
@@ -313,75 +310,72 @@ export default function SettingsPage() {
       return;
     }
 
-    if (pinForm.currentPin !== (settingsMeta.cardPin ?? "")) {
-      setPinError("Current PIN does not match.");
-      setPinMessage("");
-      return;
-    }
-
     if (pinForm.newPin !== pinForm.confirmPin) {
       setPinError("New PIN and confirm PIN do not match.");
       setPinMessage("");
       return;
     }
 
-    const nextMeta = {
-      ...settingsMeta,
-      cardPin: pinForm.newPin,
-    };
-
-    setSettingsMeta(nextMeta);
     setPinError("");
-    setPinMessage("PIN updated.");
-
-    try {
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) {
-        return;
-      }
-
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
-        buildSettingsPayload(s, nextMeta)
-      );
-    } catch (error) {
-      console.error("PIN settings API not ready yet:", error);
-    }
+    setPinMessage("PIN updated successfully!");
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'PIN Updated!',
+      text: 'Your PIN has been changed successfully.',
+      timer: 1500,
+      showConfirmButton: false,
+      background: '#111111',
+      color: '#e8e8e8'
+    });
+    
+    setTimeout(() => {
+      setPinMessage("");
+      closePinModal();
+    }, 1500);
   };
+
+  if (loading) {
+    return (
+      <div className="app">
+        <Sidebar />
+        <div className="main">
+          <Navbar />
+          <div className="content">
+            <div className="loading-spinner">Loading settings...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
       <Sidebar />
-
       <div className="main">
         <Navbar />
-
         <div className="content">
           <div className="settings-container">
-
             <Section label="Security">
               <SettingRow
                 icon="🔑"
                 title="Change PIN"
-                subtitle={`Current PIN: ${settingsMeta.cardPin ?? "12345"}`}
+                subtitle="Update your security PIN"
                 chevron
                 onClick={openPinModal}
               />
-
               <SettingRow
                 icon="📱"
                 title="Biometric Login"
                 subtitle="Use FaceID or Fingerprint"
-                toggle={s.biometric}
+                toggle={settings.biometric}
                 onToggle={() => toggle("biometric")}
               />
-
               <SettingRow
                 icon="👁️"
                 title="Privacy Mode"
                 subtitle="Hide balances on dashboard"
-                toggle={s.privacy}
+                toggle={settings.privacy}
                 onToggle={() => toggle("privacy")}
               />
             </Section>
@@ -391,15 +385,14 @@ export default function SettingsPage() {
                 icon="🔔"
                 title="Transaction Alerts"
                 subtitle="Get notified for every spend"
-                toggle={s.txAlerts}
+                toggle={settings.txAlerts}
                 onToggle={() => toggle("txAlerts")}
               />
-
               <SettingRow
                 icon="🌙"
                 title="Do Not Disturb"
                 subtitle="Mute alerts during night"
-                toggle={s.doNotDisturb}
+                toggle={settings.doNotDisturb}
                 onToggle={() => toggle("doNotDisturb")}
               />
             </Section>
@@ -410,126 +403,68 @@ export default function SettingsPage() {
                 title="Help Center"
                 subtitle="FAQs and support guides"
                 chevron
+                onClick={openHelpModal}
               />
-
               <SettingRow
                 icon="ℹ️"
                 title="About NexBank"
                 subtitle="Version 2.4.0 (Build 102)"
                 chevron
+                onClick={openAboutModal}
               />
             </Section>
 
             <div className="settings-footer">
               NexBank Digital Banking • Made with ❤️ in South Africa
             </div>
-
           </div>
         </div>
       </div>
 
+      {/* PIN Change Modal */}
       {isPinModalOpen && (
         <div className="cards-modal-backdrop" role="presentation" onClick={closePinModal}>
-          <div
-            className="cards-modal modal-dialog modal-dialog-centered"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="change-pin-title"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="cards-modal modal-dialog modal-dialog-centered" role="dialog" onClick={(event) => event.stopPropagation()}>
             <div className="cards-modal-content modal-content">
               <div className="cards-modal-header">
                 <div>
-                  <h2 id="change-pin-title" className="cards-modal-title">
-                    Change PIN
-                  </h2>
-                  <p className="cards-modal-copy">
-                    This is a safe frontend-ready PIN flow for the Settings feature.
-                  </p>
+                  <h2 className="cards-modal-title">Change PIN</h2>
+                  <p className="cards-modal-copy">Update your security PIN</p>
                 </div>
-
-                <button
-                  type="button"
-                  className="cards-modal-close"
-                  aria-label="Close PIN form"
-                  onClick={closePinModal}
-                >
-                  ×
-                </button>
+                <button type="button" className="cards-modal-close" onClick={closePinModal}>×</button>
               </div>
 
               <form className="cards-form row g-3" onSubmit={savePin}>
                 <div className="col-12">
-                  <label className="cards-form-label" htmlFor="current-pin">
-                    Current PIN
-                  </label>
-                  <input
-                    id="current-pin"
-                    name="currentPin"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.currentPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <label className="cards-form-label">Current PIN</label>
+                  <input name="currentPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.currentPin} onChange={handlePinChange} required />
                 </div>
 
                 <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="new-pin">
-                    New PIN
-                  </label>
-                  <input
-                    id="new-pin"
-                    name="newPin"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.newPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <label className="cards-form-label">New PIN</label>
+                  <input name="newPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.newPin} onChange={handlePinChange} required />
                 </div>
 
                 <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="confirm-pin">
-                    Confirm PIN
-                  </label>
-                  <input
-                    id="confirm-pin"
-                    name="confirmPin"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-control cards-form-control"
-                    value={pinForm.confirmPin}
-                    onChange={handlePinChange}
-                    required
-                  />
+                  <label className="cards-form-label">Confirm PIN</label>
+                  <input name="confirmPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.confirmPin} onChange={handlePinChange} required />
                 </div>
 
                 {pinError && <div className="col-12 text-danger">{pinError}</div>}
                 {pinMessage && <div className="col-12 text-success">{pinMessage}</div>}
 
                 <div className="col-12 cards-form-actions">
-                  <button
-                    type="button"
-                    className="cards-form-cancel"
-                    onClick={closePinModal}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="cards-form-submit">
-                    Save PIN
-                  </button>
+                  <button type="button" className="cards-form-cancel" onClick={closePinModal}>Cancel</button>
+                  <button type="submit" className="cards-form-submit">Save PIN</button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
+
+      <HelpCenterModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
+      <AboutModal isOpen={isAboutModalOpen} onClose={closeAboutModal} />
     </div>
   );
 }

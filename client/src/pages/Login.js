@@ -61,9 +61,9 @@ function LoginForm() {
       });
 
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userId", response.data.user._id);  // <--- ADD THIS LINE
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      console.log("Successfully logged in", response.data.user);
-
+      
       navigate("/dashboard");
     } catch (error) {
       const message =

@@ -57,14 +57,15 @@ function InsightsDonut({ items, totalSpent }) {
 }
 
 export default function Insights() {
-  const { accounts, selectedAccount, insightsSummary, isLoading, selectAccount } = useAccount();
+  const { accounts, overview, selectedAccount, isLoading, selectAccount } = useAccount();
 
-  const monthlySpending = insightsSummary.categories.map((category) => ({
-    name: category.label,
-    amount: category.amount,
-    ...getCategoryMeta(category.label),
+  const breakdown = Array.isArray(overview?.insights?.breakdown) ? overview.insights.breakdown : [];
+  const monthlySpending = breakdown.map((category) => ({
+    name: category.category,
+    amount: Number(category.amount || 0),
+    ...getCategoryMeta(category.category),
   }));
-  const totalSpent = insightsSummary.totalSpent;
+  const totalSpent = Number(overview?.insights?.totalSpent || 0);
 
   return (
     <div className="dashboard-page">

@@ -15,11 +15,12 @@ const transferOptions = [
 const generateCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
 export default function Transfer() {
-  const { selectedAccount, transferFunds } = useAccount();
+  const { accounts, selectedAccount, transferFunds, isLoading } = useAccount();
   const [form, setForm] = useState({
     route: "internal",
     amount: "",
     destination: "",
+    recipientAccountId: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -30,26 +31,73 @@ export default function Transfer() {
   );
 
   const handleChange = (event) => {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
+    const { name, value } = event.target;
+
+    setForm((current) => {
+      if (name === "route") {
+        return {
+          ...current,
+          route: value,
+          destination: "",
+          recipientAccountId: "",
+        };
+      }
+
+      return {
+        ...current,
+        [name]: value,
+      };
+    });
     setMessage("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    if (!selectedAccount) {
+      setMessage("Choose an account before sending a transfer.");
+      return;
+    }
+
+    if (!form.amount || Number(form.amount) <= 0) {
+      setMessage("Enter a valid transfer amount.");
+      return;
+    }
+
+    if (form.route === "internal" && !form.recipientAccountId) {
+      setMessage("Choose the destination account.");
+      return;
+    }
+
+    if (form.route !== "internal" && !form.destination.trim()) {
+      setMessage(
+        form.route === "voucher"
+          ? "Enter the destination cellphone number."
+          : "Enter the destination details."
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setMessage("");
 
       await transferFunds({
+        accountId: selectedAccount._id,
         amount: Number(form.amount),
         route: form.route,
+        recipientAccountId: form.route === "internal" ? form.recipientAccountId : "",
         bankName: selectedRoute.bankName || "Other bank",
-        beneficiaryName: form.destination,
-        accountNumber: form.route === "voucher" ? "" : form.destination,
+        beneficiaryName:
+          form.route === "internal"
+            ? accounts.find((account) => account._id === form.recipientAccountId)?.name || ""
+            : form.destination,
+        accountNumber:
+          form.route === "internal"
+            ? accounts.find((account) => account._id === form.recipientAccountId)?.accountNumber || ""
+            : form.route === "voucher"
+              ? ""
+              : form.destination,
         accountType: "Cheque",
         cellphone: form.route === "voucher" ? form.destination : "",
         reference: form.destination || "Transfer",
@@ -62,6 +110,7 @@ export default function Transfer() {
         ...current,
         amount: "",
         destination: "",
+        recipientAccountId: "",
       }));
     } catch (error) {
       setMessage(
@@ -71,6 +120,26 @@ export default function Transfer() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-page">
+        <Sidebar />
+
+        <div className="dashboard-main-panel">
+          <Navbar />
+
+          <main className="dashboard-content-area">
+            <div className="container-fluid px-0 dashboard-shell">
+              <article className="action-panel">
+                <p className="action-helper">Loading account details...</p>
+              </article>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedAccount) {
     return (
@@ -127,9 +196,7 @@ export default function Transfer() {
                 <article className="action-panel action-panel--form">
                   <div className="action-panel__header">
                     <h2 className="action-panel__title">Transfer Details</h2>
-                    <p className="action-panel__copy">
-                      Keep the form short. Destination format depends on the transfer type.
-                    </p>
+                  
                   </div>
 
                   <form className="action-form" onSubmit={handleSubmit}>
@@ -163,21 +230,42 @@ export default function Transfer() {
                       />
                     </label>
 
-                    <label className="action-form__field">
-                      <span>{form.route === "voucher" ? "Destination number" : "Destination"}</span>
-                      <input
-                        className="action-form__input"
-                        type="text"
-                        name="destination"
-                        value={form.destination}
-                        onChange={handleChange}
-                        placeholder={
-                          form.route === "voucher"
-                            ? "Enter cellphone number"
-                            : "Enter account number or recipient"
-                        }
-                      />
-                    </label>
+                    {form.route === "internal" ? (
+                      <label className="action-form__field">
+                        <span>Destination account</span>
+                        <select
+                          className="action-form__input"
+                          name="recipientAccountId"
+                          value={form.recipientAccountId}
+                          onChange={handleChange}
+                        >
+                          <option value="">Choose destination account</option>
+                          {accounts
+                            .filter((account) => account._id !== selectedAccount._id)
+                            .map((account) => (
+                              <option key={account._id} value={account._id}>
+                                {account.name} • {account.accountNumber}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <label className="action-form__field">
+                        <span>{form.route === "voucher" ? "Destination number" : "Destination"}</span>
+                        <input
+                          className="action-form__input"
+                          type="text"
+                          name="destination"
+                          value={form.destination}
+                          onChange={handleChange}
+                          placeholder={
+                            form.route === "voucher"
+                              ? "Enter cellphone number"
+                              : "Enter account number or recipient"
+                          }
+                        />
+                      </label>
+                    )}
 
                     {message ? <p className="action-helper">{message}</p> : null}
 

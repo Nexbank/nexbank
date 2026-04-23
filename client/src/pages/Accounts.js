@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { FiBriefcase, FiPlus } from "react-icons/fi";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
@@ -63,17 +62,21 @@ export default function Accounts() {
                 <article className="action-panel">
                   <p className="action-helper">Loading accounts...</p>
                 </article>
-              ) : !selectedAccount ? (
-                <AccountRequiredState />
               ) : (
                 <div className="action-page__grid">
                   <article className="action-panel">
-                    <p className="action-panel__label">Available balance</p>
+                    <p className="action-panel__label">
+                      {selectedAccount ? "Available balance" : "Account status"}
+                    </p>
                     <h2 className="action-panel__value">
-                      {formatCurrency(selectedAccount.availableBalance)}
+                      {selectedAccount ? formatCurrency(selectedAccount.availableBalance) : formatCurrency(0)}
                     </h2>
                     <p className="action-panel__meta">
-                      Account: {selectedAccount.accountNumber} • {selectedAccount.accountType}
+                      {selectedAccount
+                        ? `Account: ${selectedAccount.accountNumber} • ${selectedAccount.accountType}`
+                        : accounts.length > 0
+                          ? "Choose one of your accounts to continue."
+                          : "Create your first account to start banking."}
                     </p>
                   </article>
 
@@ -86,42 +89,48 @@ export default function Accounts() {
                     </div>
 
                     <div className="action-form">
-                      <label className="action-form__field">
-                        <span>Selected account</span>
-                        <select
-                          className="action-form__input"
-                          value={selectedAccount._id}
-                          onChange={(event) => selectAccount(event.target.value)}
-                        >
-                          {accounts.map((account) => (
-                            <option key={account._id} value={account._id}>
-                              {account.name} • {account.accountNumber}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      {accounts.length > 0 ? (
+                        <>
+                          <label className="action-form__field">
+                            <span>Selected account</span>
+                            <select
+                              className="action-form__input"
+                              value={selectedAccount?._id || ""}
+                              onChange={(event) => selectAccount(event.target.value)}
+                            >
+                              {accounts.map((account) => (
+                                <option key={account._id} value={account._id}>
+                                  {account.name} • {account.accountNumber}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
 
-                      <div className="action-option-grid">
-                        {accounts.map((account) => (
-                          <button
-                            key={account._id}
-                            type="button"
-                            className={`action-option-card ${
-                              selectedAccount._id === account._id ? "action-option-card--active" : ""
-                            }`}
-                            onClick={() => selectAccount(account._id)}
-                          >
-                            <div className="action-option-card__top">
-                              <h3>{account.name}</h3>
-                              <span>{account.accountType}</span>
-                            </div>
-                            <p className="action-option-card__amount">
-                              {formatCurrency(account.availableBalance)}
-                            </p>
-                            <small className="action-helper">{account.accountNumber}</small>
-                          </button>
-                        ))}
-                      </div>
+                          <div className="action-option-grid">
+                            {accounts.map((account) => (
+                              <button
+                                key={account._id}
+                                type="button"
+                                className={`action-option-card ${
+                                  selectedAccount?._id === account._id ? "action-option-card--active" : ""
+                                }`}
+                                onClick={() => selectAccount(account._id)}
+                              >
+                                <div className="action-option-card__top">
+                                  <h3>{account.name}</h3>
+                                  <span>{account.accountType}</span>
+                                </div>
+                                <p className="action-option-card__amount">
+                                  {formatCurrency(account.availableBalance)}
+                                </p>
+                                <small className="action-helper">{account.accountNumber}</small>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="action-helper">No accounts found yet. Create one below.</p>
+                      )}
 
                       <form className="action-form" onSubmit={handleCreateAccount}>
                         <label className="action-form__field">

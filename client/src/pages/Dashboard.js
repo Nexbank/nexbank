@@ -41,39 +41,33 @@ const actionItems = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
-  const {
-    accounts,
-    selectedAccount,
-    selectedCards,
-    selectedTransactions,
-    dashboardSummary,
-    isLoading,
-    selectAccount,
-  } = useAccount();
+  const { accounts, overview, selectedAccount, isLoading, selectAccount } = useAccount();
 
-  const summaryItems = useMemo(
-    () => [
+  const summaryItems = useMemo(() => {
+    const summary = overview?.summary || {};
+    const selectedCards = Array.isArray(overview?.cards) ? overview.cards : [];
+
+    return [
       {
         title: "Money In",
-        value: formatCurrency(dashboardSummary.moneyIn),
-        change: `${selectedTransactions.filter((transaction) => transaction.direction === "credit").length} items`,
+        value: formatCurrency(summary.totalDeposits || 0),
+        change: `${summary.depositCount || 0} items`,
         changeClass: "dashboard-stat-change--positive",
       },
       {
         title: "Money Out",
-        value: formatCurrency(dashboardSummary.moneyOut),
-        change: `${selectedTransactions.filter((transaction) => transaction.direction === "debit").length} items`,
+        value: formatCurrency(summary.totalWithdrawals || 0),
+        change: `${summary.withdrawalCount || 0} items`,
         changeClass: "dashboard-stat-change--negative",
       },
       {
         title: "Cards",
         value: String(selectedCards.length),
-        change: `${dashboardSummary.activeCardsCount} active`,
+        change: `${selectedCards.filter((card) => card.isActive && !card.isLocked).length} active`,
         changeClass: "dashboard-stat-change--info",
       },
-    ],
-    [dashboardSummary, selectedCards.length, selectedTransactions]
-  );
+    ];
+  }, [overview]);
 
   return (
     <div className="dashboard-page">
@@ -111,7 +105,7 @@ export default function Dashboard() {
                         <span className="dashboard-currency">R</span>
                         <h1 className="dashboard-balance-amount">
                           {showBalance
-                            ? Number(dashboardSummary.totalAvailableBalance || 0).toLocaleString("en-ZA", {
+                            ? Number(selectedAccount.availableBalance || 0).toLocaleString("en-ZA", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })
@@ -195,7 +189,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="mt-4">
-                      <TransactionList transactions={dashboardSummary.recentTransactions} />
+                      <TransactionList transactions={overview?.recentTransactions || []} />
                     </div>
                   </article>
                 </section>

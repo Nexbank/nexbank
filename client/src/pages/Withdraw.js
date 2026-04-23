@@ -5,7 +5,6 @@ import { spendingCategories } from "../constants/transactionCategories";
 import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import API from "../services/api";
 import { useAccount } from "../context/AccountContext";
 import { formatCurrency } from "../utils/banking";
 
@@ -23,11 +22,11 @@ export default function Withdraw() {
   const storedUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch (error) {
+    } catch {
       return {};
     }
   }, []);
-  const { selectedAccount, refreshSummary, isLoading } = useAccount();
+  const { selectedAccount, withdrawFunds, isLoading } = useAccount();
 
   const handleChange = (event) => {
     setForm((current) => ({
@@ -51,7 +50,7 @@ export default function Withdraw() {
 
     try {
       setIsSubmitting(true);
-      await API.post("/banking/withdraw", {
+      await withdrawFunds({
         accountId: selectedAccount._id,
         amount: Number(form.amount),
         fee: Number(form.fee || 0),
@@ -60,12 +59,11 @@ export default function Withdraw() {
         status: form.status,
       });
 
-      await refreshSummary();
       setIsModalOpen(false);
       alert("Withdrawal completed successfully.");
       navigate("/dashboard");
     } catch (error) {
-      const message = error.response?.data?.error || "Withdrawal failed. Please try again.";
+      const message = error.response?.data?.error || error.message || "Withdrawal failed. Please try again.";
       alert(message);
     } finally {
       setIsSubmitting(false);

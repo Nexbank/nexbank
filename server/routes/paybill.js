@@ -1,4 +1,28 @@
-router.post("/pay-bill", async (req, res) => {
+const express = require("express");
+const router = express.Router();
+const mongoose = require("mongoose");
+const Account = require("../models/Account");
+const User = require("../models/User");
+const Transaction = require("../models/Transaction");
+const authMiddleware = require("../middleware/authMiddleware");
+
+// GET ACCOUNTS
+router.get("/accounts", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const accounts = await Account.find({ userId: user._id });
+    res.json({ accounts });
+  } catch (err) {
+    console.error("GET ACCOUNTS ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch accounts" });
+  }
+});
+
+// PAY BILL
+router.post("/pay-bill", authMiddleware, async (req, res) => {
   try {
     const {
       amount,
@@ -14,64 +38,59 @@ router.post("/pay-bill", async (req, res) => {
     const parsedFee = Number(fee);
     const totalDebit = parsedAmount + parsedFee;
 
-    // ✅ VALIDATION
-    if (!parsedAmount || parsedAmount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    if (!billerName) {
-      return res.status(400).json({ error: "Biller name required" });
-    }
-
-    if (!category) {
-      return res.status(400).json({ error: "Category required" });
-    }
-
-    // ✅ USER + ACCOUNT
     const user = await User.findById(req.user.userId);
-    const account = await Account.findById(accountId);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (!user || !account) {
-      return res.status(404).json({ error: "User or account not found" });
-    }
+    const account = await Account.findOne({
+      _id: accountId,
+      userId: user._id
+    });
 
-    // ✅ BALANCE CHECK
+    if (!account) return res.status(404).json({ error: "Account not found" });
+
     if (account.balance < totalDebit) {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    // ✅ DEDUCT (THIS IS THE REAL ACTION)
+    // Deduct from account
     account.balance -= totalDebit;
+    await account.save();
 
-    // ✅ RECORD TRANSACTION (AS WITHDRAWAL)
-    const transaction = new Transaction({
+    // Create transaction like profile creates user
+    const transaction = await Transaction.create({
       userId: user._id,
       accountId: account._id,
-
       amount: parsedAmount,
       fee: parsedFee,
-
-      type: "withdrawal", // ✅ ALWAYS for bills
-      category,           // Electricity, DSTV, etc.
-      billerName,
-
-      dynamicFields,
-
-      reference: reference || `${billerName} bill`,
-      status: "Completed"
+      type: "bill",
+      category: category,
+      reference: reference || `${category} payment`,
+      status: "Completed",
+      billerName: billerName,           // Now this field exists in schema
+      dynamicFields: dynamicFields       // Now this field exists in schema
     });
 
-    await account.save();
-    await transaction.save();
+    // Verify it was saved (like profile does)
+    const savedTransaction = await Transaction.findById(transaction._id);
+    
+    if (!savedTransaction) {
+      throw new Error("Transaction was not saved to database");
+    }
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Bill paid successfully",
-      newBalance: account.balance,
-      transaction
+      transaction: savedTransaction,
+      newBalance: account.balance
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Bill payment failed" });
+    console.error("PAY BILL ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;

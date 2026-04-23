@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { useNotification } from "../components/Notification";
 
+
 function Register() {
   const navigate = useNavigate();
   const { showNotification } = useNotification();

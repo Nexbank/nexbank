@@ -1,11 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useNotification } from "../components/Notification";
+import axios from "axios";
 
 const Profile = () => {
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          "http://localhost:5000/api/profile/me",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setUserInfo(res.data);
+
+        // also sync edit form
+        setEditForm({
+          email: res.data.email,
+          phone: res.data.phone,
+          location: res.data.location,
+        });
+
+      } catch (error) {
+        console.error("Failed to fetch user", error);
+      }
+    };
+
+    fetchUser();
+  }, []);
   const navigate = useNavigate();
   const { showNotification } = useNotification();
 
@@ -16,11 +47,14 @@ const Profile = () => {
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  // State for user information
+  const [userInfo, setUserInfo] = useState({});
   const [editForm, setEditForm] = useState({
-    email: userInfo.email,
-    phone: userInfo.phone,
-    location: userInfo.location,
+    email: "",
+    phone: "",
+    location: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
 
   const [preferences, setPreferences] = useState({
     twoFactor: true,
@@ -33,7 +67,11 @@ const Profile = () => {
   };
 
   const handleEditClick = () => {
-    setEditForm({ ...userInfo });
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
     setIsEditing(true);
   };
 
@@ -45,12 +83,33 @@ const Profile = () => {
     }));
   };
 
-  const handleSave = () => {
-    setUserInfo({ ...editForm });
-    setIsEditing(false);
-    showNotification("success", "Profile information updated successfully.", {
-      title: "Profile Updated",
-    });
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        "http://localhost:5000/api/profile/update",
+        {
+          phone: editForm.phone,
+          location: editForm.location,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setUserInfo(res.data.user);
+      setEditForm(res.data.user);
+
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      setIsEditing(false);
+      alert("Profile updated successfully!");
+    } catch (error) {
+      console.error(error);
+      alert("Update failed");
+    }
   };
 
   const handleCancel = () => {
@@ -125,6 +184,7 @@ const Profile = () => {
       title: "Language Updated",
     });
   };
+  // 
 
   return (
     <div className="app">
@@ -148,9 +208,19 @@ const Profile = () => {
               </div>
 
               <div className="profile-user-info">
-                <h1>Hi, Nozwelo</h1>
+                <h1>
+                  Hi, {userInfo?.displayName || userInfo?.email || "User"}
+                </h1>
+
                 <p className="profile-badge">
-                  Premium Member since 2024
+                  Member since{" "}
+                  {userInfo?.createdAt
+                    ? new Date(userInfo.createdAt).getFullYear()
+                    : "2024"}
+                </p>
+
+                <p className="profile-subtext">
+                  your account is: Basic Account
                 </p>
               </div>
             </div>
@@ -190,7 +260,7 @@ const Profile = () => {
                       <input
                         type="email"
                         name="email"
-                        value={editForm.email}
+                        value={editForm.email || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />
@@ -201,7 +271,7 @@ const Profile = () => {
                       <input
                         type="tel"
                         name="phone"
-                        value={editForm.phone}
+                        value={editForm.phone || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />
@@ -212,7 +282,7 @@ const Profile = () => {
                       <input
                         type="text"
                         name="location"
-                        value={editForm.location}
+                        value={editForm.location || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />

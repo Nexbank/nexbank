@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import Swal from "sweetalert2";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 
@@ -45,7 +46,7 @@ function Section({ label, children }) {
   );
 }
 
-// Help Center Modal
+// Help Center Modal - NO INLINE STYLES
 function HelpCenterModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
@@ -56,7 +57,6 @@ function HelpCenterModal({ isOpen, onClose }) {
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        style={{ maxWidth: "500px" }}
       >
         <div className="cards-modal-content modal-content">
           <div className="cards-modal-header">
@@ -67,33 +67,29 @@ function HelpCenterModal({ isOpen, onClose }) {
             <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
           </div>
 
-          <div style={{ padding: "0 0 20px 0" }}>
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "12px", color: "var(--color-primary)" }}>
-                Top Questions
-              </h3>
+          <div className="help-modal-content">
+            <div className="faq-section">
+              <h3 className="faq-title">Top Questions</h3>
               
-              <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>🔐 How to reset password?</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Click "Forgot Password" on login page</div>
+              <div className="faq-item">
+                <div className="faq-question">🔐 How to reset password?</div>
+                <div className="faq-answer">Click "Forgot Password" on login page</div>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>💳 Lost or stolen card?</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Call 24/7 support: +27 800 123 456</div>
+              <div className="faq-item">
+                <div className="faq-question">💳 Lost or stolen card?</div>
+                <div className="faq-answer">Call 24/7 support: +27 800 123 456</div>
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "13px" }}>⏱️ Transfer times?</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Internal: Instant | External: 1-2 days</div>
+              <div className="faq-item">
+                <div className="faq-question">⏱️ Transfer times?</div>
+                <div className="faq-answer">Internal: Instant | External: 1-2 days</div>
               </div>
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "12px", color: "var(--color-primary)" }}>
-                Contact Us
-              </h3>
-              <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "12px", fontSize: "13px" }}>
+            <div className="contact-section">
+              <h3 className="contact-title">Contact Us</h3>
+              <div className="contact-info">
                 <p>📞 Phone: +27 800 123 456</p>
                 <p>✉️ Email: support@nexbank.co.za</p>
                 <p>💬 WhatsApp: +27 81 234 5678</p>
@@ -110,7 +106,7 @@ function HelpCenterModal({ isOpen, onClose }) {
   );
 }
 
-// About NexBank Modal
+// About NexBank Modal - NO INLINE STYLES
 function AboutModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
@@ -121,7 +117,6 @@ function AboutModal({ isOpen, onClose }) {
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
-        style={{ maxWidth: "500px" }}
       >
         <div className="cards-modal-content modal-content">
           <div className="cards-modal-header">
@@ -132,41 +127,39 @@ function AboutModal({ isOpen, onClose }) {
             <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
           </div>
 
-          <div style={{ padding: "0 0 20px 0", textAlign: "center" }}>
-            <div style={{ 
-              width: "60px", height: "60px", background: "linear-gradient(135deg, var(--color-primary), #00e089)",
-              borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 12px"
-            }}>
-              <span style={{ fontSize: "30px", color: "#000" }}>N</span>
+          <div className="about-modal-content">
+            <div className="about-logo">
+              <div className="about-logo-circle">
+                <span>N</span>
+              </div>
             </div>
             
-            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>NexBank</h3>
-            <p style={{ color: "var(--color-primary)", fontSize: "12px", marginBottom: "16px" }}>Version 2.4.0</p>
+            <h3 className="about-title">NexBank</h3>
+            <p className="about-version">Version 2.4.0</p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: "16px" }}>
-              <div style={{ background: "rgba(255,255,255,0.04)", padding: "8px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>500K+</div>
-                <div style={{ fontSize: "11px" }}>Users</div>
+            <div className="about-stats">
+              <div className="about-stat">
+                <div className="about-stat-number">500K+</div>
+                <div className="about-stat-label">Users</div>
               </div>
-              <div style={{ background: "rgba(255,255,255,0.04)", padding: "8px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--color-primary)" }}>24/7</div>
-                <div style={{ fontSize: "11px" }}>Support</div>
+              <div className="about-stat">
+                <div className="about-stat-number">24/7</div>
+                <div className="about-stat-label">Support</div>
               </div>
             </div>
 
-            <p style={{ fontSize: "13px", color: "var(--color-text-muted)", marginBottom: "16px", lineHeight: "1.5" }}>
+            <p className="about-mission">
               Secure, accessible banking for all South Africans.
             </p>
 
-            <div style={{ background: "rgba(0,200,122,0.1)", padding: "8px", borderRadius: "8px", marginBottom: "16px" }}>
-              <p style={{ fontSize: "12px", margin: "0" }}>🔒 Licensed by SARB • 256-bit SSL Encryption</p>
+            <div className="about-security">
+              <p>🔒 Licensed by SARB • 256-bit SSL Encryption</p>
             </div>
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-              <span style={{ fontSize: "20px", cursor: "pointer" }}>📘</span>
-              <span style={{ fontSize: "20px", cursor: "pointer" }}>🐦</span>
-              <span style={{ fontSize: "20px", cursor: "pointer" }}>📷</span>
+            <div className="about-social">
+              <span>📘</span>
+              <span>🐦</span>
+              <span>📷</span>
             </div>
           </div>
 
@@ -193,7 +186,6 @@ export default function SettingsPage() {
   const [pinMessage, setPinMessage] = useState("");
   const [pinError, setPinError] = useState("");
 
-  // LOAD SETTINGS WHEN PAGE OPENS
   useEffect(() => {
     const fetchSettings = async () => {
       const token = localStorage.getItem("token");
@@ -222,7 +214,6 @@ export default function SettingsPage() {
         }
         setLoading(false);
       } catch (error) {
-        console.error("Failed to fetch settings:", error);
         setLoading(false);
       }
     };
@@ -230,7 +221,6 @@ export default function SettingsPage() {
     fetchSettings();
   }, []);
 
-  // SAVE SETTINGS WHEN TOGGLED
   const saveSettings = async (updatedSettings) => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
@@ -254,18 +244,37 @@ export default function SettingsPage() {
           },
         }
       );
-      // Show success message
-      alert("Settings saved!");
+      return true;
     } catch (error) {
-      console.error("Failed to save settings:", error);
-      alert("Failed to save settings");
+      return false;
     }
   };
 
   const toggle = async (key) => {
     const updated = { ...settings, [key]: !settings[key] };
     setSettings(updated);
-    await saveSettings(updated);
+    
+    const success = await saveSettings(updated);
+    
+    if (success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Settings Saved!',
+        text: 'Your preference has been updated.',
+        timer: 1500,
+        showConfirmButton: false,
+        background: '#111111',
+        color: '#e8e8e8'
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed to Save',
+        text: 'Please try again later.',
+        background: '#111111',
+        color: '#e8e8e8'
+      });
+    }
   };
 
   const openPinModal = () => {
@@ -310,10 +319,20 @@ export default function SettingsPage() {
     setPinError("");
     setPinMessage("PIN updated successfully!");
     
+    Swal.fire({
+      icon: 'success',
+      title: 'PIN Updated!',
+      text: 'Your PIN has been changed successfully.',
+      timer: 1500,
+      showConfirmButton: false,
+      background: '#111111',
+      color: '#e8e8e8'
+    });
+    
     setTimeout(() => {
       setPinMessage("");
       closePinModal();
-    }, 2000);
+    }, 1500);
   };
 
   if (loading) {
@@ -323,7 +342,7 @@ export default function SettingsPage() {
         <div className="main">
           <Navbar />
           <div className="content">
-            <div style={{ textAlign: "center", padding: "50px" }}>Loading settings...</div>
+            <div className="loading-spinner">Loading settings...</div>
           </div>
         </div>
       </div>

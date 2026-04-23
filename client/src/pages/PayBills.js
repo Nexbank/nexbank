@@ -82,37 +82,37 @@ export default function PayBills() {
   const dynamicFields = currentCategory.fields || [];
 
   useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = async () => {
+    try {
+      // Fetch accounts first
       try {
-        // Fetch accounts first
-        try {
-          const accountsResponse = await API.get("/banking/accounts");
-          if (accountsResponse.data.accounts && accountsResponse.data.accounts.length > 0) {
-            setAccounts(accountsResponse.data.accounts);
-            setSelectedAccountId(accountsResponse.data.accounts[0]._id);
-          }
-        } catch (err) {
-          console.log("Accounts endpoint not available yet");
+        const accountsResponse = await API.get("/banking/accounts");
+        if (accountsResponse.data.accounts && accountsResponse.data.accounts.length > 0) {
+          setAccounts(accountsResponse.data.accounts);
+          setSelectedAccountId(accountsResponse.data.accounts[0]._id);
         }
-        
-        // Fetch overview
-        const overviewResponse = await API.get("/banking/overview");
-        setOverview(overviewResponse.data);
-        
-        // If no accounts from accounts endpoint, use the one from overview
-        if (accounts.length === 0 && overviewResponse.data.account) {
-          setAccounts([overviewResponse.data.account]);
-          setSelectedAccountId(overviewResponse.data.account._id);
-        }
-      } catch (error) {
-        if (error.response?.status === 401) {
-          navigate("/login");
-        }
+      } catch (err) {
+        console.log("Accounts endpoint not available yet");
       }
-    };
+      
+      // Fetch overview
+      const overviewResponse = await API.get("/banking/overview");
+      setOverview(overviewResponse.data);
+      
+      // If no accounts from accounts endpoint, use the one from overview
+      if (accounts.length === 0 && overviewResponse.data.account) {
+        setAccounts([overviewResponse.data.account]);
+        setSelectedAccountId(overviewResponse.data.account._id);
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        navigate("/login");
+      }
+    }
+  };
 
-    fetchData();
-  }, [navigate]);
+  fetchData();
+}, [navigate, accounts.length]); // Add accounts.length here
 
   const handleChange = (event) => {
     const { name, value } = event.target;

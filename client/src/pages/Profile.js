@@ -76,33 +76,44 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    try {
-      const token = localStorage.getItem("token");
+  try {
+    const token = localStorage.getItem("token");
 
-      const res = await axios.put(
-        "http://localhost:5000/api/profile/update",
-        {
-          phone: editForm.phone,
-          location: editForm.location,
+    // Include email in the update
+    const res = await axios.put(
+      "http://localhost:5000/api/profile/update",
+      {
+        email: editForm.email,     // Add this
+        phone: editForm.phone,
+        location: editForm.location,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setUserInfo(res.data.user);
-      setEditForm(res.data.user);
+      }
+    );
+    
+    setUserInfo(res.data.user);
+    setEditForm({
+      email: res.data.user.email,
+      phone: res.data.user.phone,
+      location: res.data.user.location,
+    });
 
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+    // Update localStorage with new user data
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    
+    // Also update token if email changed (if your token includes email)
+    // You might need to re-login or refresh token here
 
-      setIsEditing(false);
-      alert("Profile updated successfully!");
-    } catch (error) {
-      console.error(error);
-      alert("Update failed");
-    }
-  };
+    setIsEditing(false);
+    alert("Profile updated successfully!");
+  } catch (error) {
+    console.error(error);
+    alert(error.response?.data?.error || "Update failed");
+  }
+};
 
   const handleCancel = () => {
     setIsEditing(false);

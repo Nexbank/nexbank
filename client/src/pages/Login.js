@@ -61,11 +61,9 @@ function LoginForm() {
       });
 
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userId", response.data.user._id);  // <--- ADD THIS LINE
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      // helps app reload and update info 
-      //window.dispatchEvent(new Event("nexbank-auth-changed"));
-      console.log("Successfully logged in", response.data.user);
-
+      
       navigate("/dashboard");
     } catch (error) {
       const message =

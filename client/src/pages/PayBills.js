@@ -23,7 +23,7 @@ const initialForm = {
 };
 
 export default function PayBills() {
-  const { selectedAccount, payBill, isLoading } = useAccount();
+  const { selectedAccount, payBill } = useAccount();
   const [form, setForm] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -63,7 +63,6 @@ export default function PayBills() {
       setMessage("");
 
       await payBill({
-        accountId: selectedAccount?._id,
         amount: Number(form.amount),
         category: form.category,
         provider: form.provider,
@@ -88,26 +87,6 @@ export default function PayBills() {
       setIsSubmitting(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="dashboard-page">
-        <Sidebar />
-
-        <div className="dashboard-main-panel">
-          <Navbar />
-
-          <main className="dashboard-content-area">
-            <div className="container-fluid px-0 dashboard-shell">
-              <article className="action-panel">
-                <p className="action-helper">Loading account details...</p>
-              </article>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
 
   if (!selectedAccount) {
     return (

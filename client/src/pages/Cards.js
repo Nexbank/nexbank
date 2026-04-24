@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FiCreditCard, FiEye, FiLock, FiPlus, FiRefreshCcw } from "react-icons/fi";
 import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
-import API from "../services/api";
 import { formatCurrency } from "../utils/currency";
 
 const ACTIVE_CARD_STATUS = "active";
@@ -21,57 +20,30 @@ const formatExpiry = (value) => {
   });
 };
 
-const normalizeCard = (card = {}) => ({
-  ...card,
-  _id: card._id || card.id,
-  id: card.id || card._id,
-  status: String(card.status || "active").toLowerCase(),
-});
-
 export default function Cards() {
-  const { accounts, selectedAccount, isLoading, selectAccount, refreshOverview } = useAccount();
-  const [cards, setCards] = useState([]);
+  const {
+    accounts,
+    selectedAccount,
+    selectedCards,
+    createCard,
+    getCardDetails,
+    freezeCard,
+    replaceCard,
+    updateCard,
+    isLoading,
+    selectAccount,
+  } = useAccount();
   const [selectedCardId, setSelectedCardId] = useState("");
   const [details, setDetails] = useState(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(false);
-
-  const loadCards = useCallback(async (accountId) => {
-    try {
-      setIsPageLoading(true);
-      setError("");
-      const response = await API.get("/banking/cards", {
-        params: { accountId },
-      });
-
-      setCards((response.data.cards || []).map(normalizeCard));
-    } catch (requestError) {
-      setError(requestError.response?.data?.error || requestError.message || "Failed to load cards.");
-      setCards([]);
-    } finally {
-      setIsPageLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!selectedAccount?._id) {
-      setCards([]);
-      setSelectedCardId("");
-      setDetails(null);
-      setError("");
-      return;
-    }
-
-    loadCards(selectedAccount._id);
-  }, [loadCards, selectedAccount?._id]);
 
   const visibleCards = useMemo(
     () =>
-      [...cards]
+      [...selectedCards]
         .filter((card) => card.status !== "replaced")
         .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)),
-    [cards]
+    [selectedCards]
   );
 
   const selectedCard =
@@ -83,17 +55,6 @@ export default function Cards() {
     String(card.cardType || card.type).toLowerCase().includes("virtual")
   );
 
-  const syncCardsAndOverview = async () => {
-    if (!selectedAccount?._id) {
-      return;
-    }
-
-    await Promise.all([
-      loadCards(selectedAccount._id),
-      refreshOverview(selectedAccount._id).catch(() => {}),
-    ]);
-  };
-
   const handleCreateVirtualCard = async () => {
     if (!selectedAccount) {
       return;
@@ -102,13 +63,8 @@ export default function Cards() {
     try {
       setIsSubmitting(true);
       setError("");
-      const response = await API.post("/banking/cards", {
-        cardType: "Virtual Card",
-        accountId: selectedAccount._id,
-      });
-
-      await syncCardsAndOverview();
-      setSelectedCardId(response.data.card?._id || "");
+      const card = await createCard({ cardType: "Virtual Card", accountId: selectedAccount._id });
+      setSelectedCardId(card?._id || "");
       setDetails(null);
     } catch (requestError) {
       setError(requestError.response?.data?.error || requestError.message || "Failed to create virtual card.");
@@ -125,8 +81,7 @@ export default function Cards() {
     try {
       setIsSubmitting(true);
       setError("");
-      const response = await API.get(`/banking/cards/${selectedCard._id}/details`);
-      setDetails(response.data.details);
+      setDetails(await getCardDetails(selectedCard._id));
     } catch (requestError) {
       setError(requestError.response?.data?.error || requestError.message || "Failed to load card details.");
     } finally {
@@ -144,12 +99,11 @@ export default function Cards() {
       setError("");
 
       if (selectedCard.status === FROZEN_CARD_STATUS) {
-        await API.patch(`/banking/cards/${selectedCard._id}`, { status: ACTIVE_CARD_STATUS });
+        await updateCard(selectedCard._id, { status: ACTIVE_CARD_STATUS });
       } else {
-        await API.post(`/banking/cards/${selectedCard._id}/freeze`);
+        await freezeCard(selectedCard._id);
       }
 
-      await syncCardsAndOverview();
       setDetails(null);
     } catch (requestError) {
       setError(requestError.response?.data?.error || requestError.message || "Failed to update card status.");
@@ -166,9 +120,8 @@ export default function Cards() {
     try {
       setIsSubmitting(true);
       setError("");
-      const response = await API.post(`/banking/cards/${selectedCard._id}/replace`);
-      await syncCardsAndOverview();
-      setSelectedCardId(response.data.replacement?.newCard?._id || "");
+      const replacement = await replaceCard(selectedCard._id);
+      setSelectedCardId(replacement?.newCard?._id || "");
       setDetails(null);
     } catch (requestError) {
       setError(requestError.response?.data?.error || requestError.message || "Failed to replace card.");
@@ -201,7 +154,7 @@ export default function Cards() {
                 </div>
               </div>
 
-              {isLoading || isPageLoading ? (
+              {isLoading ? (
                 <article className="action-panel">
                   <p className="action-helper">Loading cards...</p>
                 </article>

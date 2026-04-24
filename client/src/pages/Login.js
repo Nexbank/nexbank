@@ -1,345 +1,150 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function Login() {
-  const [step, setStep] = useState(0);
-
   return (
-    <div className="auth-wrapper">
-      {/* LEFT SIDE - ANIMATED PHONE */}
-      <div className="auth-left">
-        <div className="floating-phone-container">
-          <div className="phone-mockup">
-            <div className="phone-screen">
-              <div className="phone-header">
-                <span className="phone-time">09:41</span>
-                <div className="phone-battery">
-                  <span>📶</span> <span>🔋</span>
+    <div className="auth-shell auth-shell--login container-fluid">
+      <div className="row g-0 min-vh-100">
+        <div className="col-lg-12 auth-form-panel">
+          <div className="auth-panel-frame">
+            <div className="" />
+            <div className="auth-card">
+              {/* Logo with slogan */}
+              <div className="auth-logo-container text-center">
+                <div className="auth-logo-wrapper">
+                  <img 
+                    src="/NexBank-logo.png" 
+                    alt="NexBank Logo" 
+                    className="auth-logo"
+                  />
+                  <span className="auth-slogan">Your money simplified</span>
                 </div>
               </div>
-              <div className="phone-app">
-                <div className="app-icon">🏦</div>
-                <div className="app-name">NexBank</div>
-                <div className="phone-balance">R 12,750</div>
-                <div className="phone-transactions">
-                  <div className="phone-tx">⬆️ Sent R250</div>
-                  <div className="phone-tx">⬇️ Received R1,200</div>
-                  <div className="phone-tx">💳 Card Payment</div>
-                </div>
+              <div className="auth-switcher" role="tablist" aria-label="Authentication pages">
+                <Link className="auth-switcher-link auth-switcher-link--active" to="/login">
+                  Login
+                </Link>
+                <Link className="auth-switcher-link" to="/register">
+                  Register
+                </Link>
               </div>
+              <LoginForm />
             </div>
-            <div className="phone-home-button"></div>
           </div>
         </div>
-        
-        {/* Floating elements around phone */}
-        <div className="floating-element element-1">💳</div>
-        <div className="floating-element element-2">💰</div>
-        <div className="floating-element element-3">🔒</div>
-        <div className="floating-element element-4">⚡</div>
-        
-        <h1>Welcome to NexBank</h1>
-        <p>Your Money Simplified</p>
-      </div>
-
-      {/* RIGHT SIDE - LOGIN FORM */}
-      <div className="auth-right">
-        {step === 0 && <LoginForm goToForgot={() => setStep(1)} />}
-        {step === 1 && <StepID next={() => setStep(2)} />}
-        {step === 2 && <StepPhone next={() => setStep(3)} />}
-        {step === 3 && <StepEmail next={() => setStep(4)} />}
-        {step === 4 && <StepCard next={() => setStep(5)} />}
-        {step === 5 && <StepPassword reset={() => setStep(0)} />}
       </div>
     </div>
   );
 }
 
-export default Login;
-
-//////////////////////////////////////////////////
-// LOGIN FORM (REAL API)
-//////////////////////////////////////////////////
-
-function LoginForm({ goToForgot }) {
+function LoginForm() {
   const navigate = useNavigate();
-  // eslint-disable-next-line no-unused-vars
   const [email, setEmail] = useState("");
-  // eslint-disable-next-line no-unused-vars
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = () => {
-    navigate("/dashboard");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      alert("Please enter your email and password.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await API.post("/auth/login", {
+        email: email.trim(),
+        password,
+      });
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userId", response.data.user._id);  // <--- ADD THIS LINE
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      
+      navigate("/dashboard");
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Login failed. Please try again.";
+
+      alert(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <>
-      <div className="form-header">
-        <h2>Login</h2>
-        <p className="form-subtitle">Access your NexBank account</p>
+    <form onSubmit={handleLogin}>
+      <div className="auth-card-header">
+        <span className="auth-card-kicker">Member Sign In</span>
+        <h2 className="auth-card-title">Login to NexBank</h2>
+        <p className="auth-card-copy">Access your account and continue straight to your dashboard.</p>
       </div>
 
-      <div className="input-group">
-        <label>Email or Access Card</label>
+      <div className="mb-3">
+        <label className="form-label auth-label" htmlFor="login-email">
+          Email or Access Card
+        </label>
         <input
-          className="auth-input"
+          id="login-email"
+          className="form-control auth-control"
           type="email"
           placeholder="Enter your email"
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
 
-      <div className="input-group">
-        <label>Password</label>
+      <div className="mb-3">
+        <label className="form-label auth-label" htmlFor="login-password">
+          Password
+        </label>
         <input
-          className="auth-input"
+          id="login-password"
+          className="form-control auth-control"
           type="password"
           placeholder="Enter your password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
 
-      <div className="form-options">
-        <label className="checkbox-label">
-          <input type="checkbox" /> Remember me
-        </label>
-        <p className="auth-link" onClick={goToForgot}>
+      <div className="auth-utility-row">
+        <div className="form-check auth-check">
+          <input className="form-check-input" type="checkbox" id="rememberMe" />
+          <label className="form-check-label" htmlFor="rememberMe">
+            Remember me
+          </label>
+        </div>
+
+        <Link className="auth-text-link" to="/forgot-password">
           Forgot password?
-        </p>
+        </Link>
       </div>
 
-      <button className="auth-button" onClick={handleLogin}>
-        Login
+      <button className="btn auth-primary-btn w-100" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Logging in..." : "Login"}
       </button>
 
-      <div className="register-link">
-        <p>
-          Don't have an account? <Link to="/register">Register</Link>
+      <div className="auth-divider">
+        <span>New to NexBank?</span>
+      </div>
+
+      <p className="auth-footnote text-center">
+        Don't have an account? <Link to="/register">Register</Link>
+      </p>
+
+      <div className="auth-support-box">
+        <p className="mb-0">
+          Need help from support? <span>We're ready to assist you.</span>
         </p>
       </div>
-
-      <div className="contact-support">
-        <p>Need to talk to us directly? <span className="contact-link">Contact us →</span></p>
-      </div>
-    </>
+    </form>
   );
 }
 
-//////////////////////////////////////////////////
-// STEP 1 – SA ID
-//////////////////////////////////////////////////
-
-function StepID({ next }) {
-  const [id, setId] = useState("");
-
-  const handleNext = () => {
-    if (id.length !== 13 || isNaN(id)) {
-      alert("SA ID must be exactly 13 digits");
-      return;
-    }
-    next();
-  };
-
-  return (
-    <>
-      <h3>Verify SA ID</h3>
-      <input
-        className="auth-input"
-        placeholder="Enter 13-digit SA ID"
-        onChange={(e) => setId(e.target.value)}
-      />
-      <button className="auth-button" onClick={handleNext}>Next</button>
-    </>
-  );
-}
-
-//////////////////////////////////////////////////
-// STEP 2 – PHONE OTP
-//////////////////////////////////////////////////
-
-function StepPhone({ next }) {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-
-  const sendOTP = () => {
-    if (!phoneNumber || phoneNumber.length < 10) {
-      alert("Please enter a valid cellphone number");
-      return;
-    }
-    alert(`OTP sent to ${phoneNumber} (simulation)`);
-    setOtpSent(true);
-  };
-
-  const handleVerify = () => {
-    if (!otp) {
-      alert("Please enter the OTP");
-      return;
-    }
-    alert("Phone verified successfully!");
-    next();
-  };
-
-  return (
-    <>
-      <h3>Phone Verification</h3>
-      
-      {!otpSent ? (
-        <>
-          <input
-            className="auth-input"
-            type="tel"
-            placeholder="Enter Cellphone Number"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-          />
-          <button className="auth-button" onClick={sendOTP}>Send OTP</button>
-        </>
-      ) : (
-        <>
-          <p className="text-muted">OTP sent to {phoneNumber}</p>
-          <input
-            className="auth-input"
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
-          <button className="auth-button" onClick={handleVerify}>Verify</button>
-        </>
-      )}
-    </>
-  );
-}
-
-//////////////////////////////////////////////////
-// STEP 3 – EMAIL OTP
-//////////////////////////////////////////////////
-
-function StepEmail({ next }) {
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-
-  const sendOTP = () => {
-    if (!email || !email.includes("@")) {
-      alert("Please enter a valid email address");
-      return;
-    }
-    alert(`OTP sent to ${email} (simulation)`);
-    setOtpSent(true);
-  };
-
-  const handleVerify = () => {
-    if (!otp) {
-      alert("Please enter the OTP");
-      return;
-    }
-    alert("Email verified successfully!");
-    next();
-  };
-
-  return (
-    <>
-      <h3>Email Verification</h3>
-      
-      {!otpSent ? (
-        <>
-          <input
-            className="auth-input"
-            type="email"
-            placeholder="Enter Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button className="auth-button" onClick={sendOTP}>Send OTP</button>
-        </>
-      ) : (
-        <>
-          <p className="text-muted">OTP sent to {email}</p>
-          <input
-            className="auth-input"
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
-          <button className="auth-button" onClick={handleVerify}>Verify</button>
-        </>
-      )}
-    </>
-  );
-}
-
-//////////////////////////////////////////////////
-// STEP 4 – CARD
-//////////////////////////////////////////////////
-
-function StepCard({ next }) {
-  const [card, setCard] = useState("");
-
-  const handleNext = () => {
-    if (card.length !== 4 || isNaN(card)) {
-      alert("Enter last 4 digits of your card");
-      return;
-    }
-    next();
-  };
-
-  return (
-    <>
-      <h3>Card Verification</h3>
-      <input
-        className="auth-input"
-        placeholder="Last 4 digits of your card"
-        maxLength="4"
-        onChange={(e) => setCard(e.target.value)}
-      />
-      <button className="auth-button" onClick={handleNext}>Next</button>
-    </>
-  );
-}
-
-//////////////////////////////////////////////////
-// STEP 5 – RESET PASSWORD
-//////////////////////////////////////////////////
-
-function StepPassword({ reset }) {
-  const [pass, setPass] = useState("");
-  const [confirm, setConfirm] = useState("");
-
-  const handleReset = () => {
-    if (pass.length < 6) {
-      alert("Password must be at least 6 characters");
-      return;
-    }
-    
-    if (pass !== confirm) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    alert("Password reset successful! Please login with your new password.");
-    reset();
-  };
-
-  return (
-    <>
-      <h3>Reset Password</h3>
-
-      <input
-        className="auth-input"
-        type="password"
-        placeholder="New Password"
-        onChange={(e) => setPass(e.target.value)}
-      />
-
-      <input
-        className="auth-input"
-        type="password"
-        placeholder="Confirm Password"
-        onChange={(e) => setConfirm(e.target.value)}
-      />
-
-      <button className="auth-button" onClick={handleReset}>Reset Password</button>
-    </>
-  );
-}
+export default Login;

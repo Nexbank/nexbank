@@ -23,30 +23,44 @@ const defaultNotifications = [
 ];
 
 function Navbar({
-  userName = "user",
+  userName,
   membershipLabel = "Premium Member",
   searchPlaceholder = "Search transactions, features...",
+  search = "",
+  setSearch,
   style,
 }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const storedUser = (() => {
+    try {
+      return JSON.parse(window.localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const resolvedUserName =
+    userName ||
+    storedUser?.displayName ||
+    [storedUser?.firstname, storedUser?.surname].filter(Boolean).join(" ") ||
+    "user";
 
   return (
     <header className="navbar" style={style} aria-label="Top navigation bar">
-      
-
       <label className="navbar__search" aria-label="Search">
         <FiSearch size={18} className="navbar__search-icon" />
         <input
           type="search"
           placeholder={searchPlaceholder}
           className="navbar__search-input"
+          value={search}
+          onChange={(event) => setSearch?.(event.target.value)}
         />
       </label>
 
       <div className="navbar__profile">
         <div className="navbar__user-meta">
           <div className="navbar__user-row">
-            <span className="navbar__user-greeting">Hi, {userName}</span>
+            <span className="navbar__user-greeting">Hi, {resolvedUserName}</span>
             <span className="navbar__wave">*</span>
           </div>
           <span className="navbar__member-label">{membershipLabel}</span>
@@ -99,7 +113,7 @@ function Navbar({
           )}
         </div>
 
-        <div className="navbar__avatar" aria-label={`${userName} profile avatar`} />
+        <div className="navbar__avatar" aria-label={`${resolvedUserName} profile avatar`} />
       </div>
     </header>
   );

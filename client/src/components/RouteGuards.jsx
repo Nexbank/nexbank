@@ -1,10 +1,10 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAccount } from "../context/AccountContext";
 
-const hasToken = () => Boolean(window.localStorage.getItem("token"));
-
 export function RedirectIfAuthenticated() {
-  if (hasToken()) {
+  const { isAuthenticated } = useAccount();
+
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -13,8 +13,9 @@ export function RedirectIfAuthenticated() {
 
 export function RequireAuth() {
   const location = useLocation();
+  const { isAuthenticated } = useAccount();
 
-  if (!hasToken()) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
@@ -22,22 +23,5 @@ export function RequireAuth() {
 }
 
 export function RequireSelectedAccount() {
-  const location = useLocation();
-  const { hasActiveAccount, isLoading } = useAccount();
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (!hasActiveAccount) {
-    return (
-      <Navigate
-        to="/accounts"
-        replace
-        state={{ redirectTo: `${location.pathname}${location.search}` }}
-      />
-    );
-  }
-
   return <Outlet />;
 }

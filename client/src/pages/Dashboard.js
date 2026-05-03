@@ -9,36 +9,94 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
+import AccountRequiredState from "../components/AccountRequiredState";
 import Sidebar from "../components/Sidebar";
 import TransactionList from "../components/TransactionList";
 import { useAccount } from "../context/AccountContext";
 import { formatCurrency } from "../utils/currency";
 
+const ACCOUNT_PRODUCTS = [
+  {
+    name: "Main Account",
+    accountType: "current",
+    description: "Daily banking, cards, payments",
+    monthlyFee: 50,
+  },
+  {
+    name: "TruSave",
+    accountType: "savings",
+    description: "Save money, limited withdrawals",
+    monthlyFee: 0,
+  },
+  {
+    name: "Student Account",
+    accountType: "student",
+    description: "Low-fee banking for students",
+    monthlyFee: 0,
+  },
+  {
+    name: "Fixed Deposit",
+    accountType: "fixed_deposit",
+    description: "Earn interest, locked funds",
+    monthlyFee: 0,
+  },
+  {
+    name: "Tax-Free Savings",
+    accountType: "tax_free_savings",
+    description: "Long-term tax-free saving",
+    monthlyFee: 0,
+  },
+  {
+    name: "Private Banking",
+    accountType: "private_banking",
+    description: "Premium banking with higher limits",
+    monthlyFee: 150,
+  },
+];
+
+const humanizeValue = (value = "") =>
+  String(value)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim();
+
 const actionItems = [
-  { label: "Deposit", icon: FiPlus, accentClass: "dashboard-action-card--green", path: "/deposit" },
+  {
+    label: "Deposit",
+    icon: FiPlus,
+    accentClass: "dashboard-action-card--green",
+    path: "/deposit",
+    isAvailable: () => true,
+    helpText: "Add money into this account.",
+  },
   {
     label: "Withdraw",
     icon: FiArrowUpRight,
     accentClass: "dashboard-action-card--blue",
     path: "/withdraw",
+    isAvailable: (account) => account?.rules?.allowsWithdrawals !== false,
+    helpText: "Move money out of this account.",
   },
   {
     label: "Transfer",
     icon: FiRepeat,
     accentClass: "dashboard-action-card--orange",
     path: "/transfer",
+    isAvailable: (account) => account?.rules?.allowsTransfers !== false,
+    helpText: "Send money to another account.",
   },
   {
     label: "Pay Bills",
     icon: FiArrowDownRight,
     accentClass: "dashboard-action-card--purple",
     path: "/pay-bills",
+    isAvailable: (account) => account?.rules?.allowsBillPayments !== false,
+    helpText: "Pay providers directly from this account.",
   },
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ search, setSearch, searchResults }) {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
   const {
@@ -75,21 +133,108 @@ export default function Dashboard() {
     [dashboardSummary, selectedCards.length, selectedTransactions]
   );
 
+  const filteredRecentTransactions = useMemo(() => {
+    const searchValue = (search || "").trim().toLowerCase();
+
+    if (!searchValue) {
+      return dashboardSummary.recentTransactions;
+    }
+
+    return dashboardSummary.recentTransactions.filter((transaction) =>
+      [
+        transaction.description,
+        transaction.reference,
+        transaction.category,
+        transaction.type,
+        transaction.status,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(searchValue))
+    );
+  }, [dashboardSummary.recentTransactions, search]);
+
+  const shouldShowAccountState = !isLoading && !selectedAccount;
+  const accountDisplayName = selectedAccount?.name || selectedAccount?.accountType || "Selected account";
+  const accountDisplayNumber = selectedAccount?.accountNumber || "Account unavailable";
+  const accountDisplayType = [selectedAccount?.accountType, selectedAccount?.category]
+    .filter(Boolean)
+    .map((value) => humanizeValue(value))
+    .join(" • ");
+  const selectableAccounts = accounts.filter(Boolean);
+  const selectedAccountBalance = Number(
+    selectedAccount?.availableBalance ??
+      selectedAccount?.balance ??
+      selectedAccount?.ledgerBalance ??
+      0
+  );
+  const ownedAccountTypes = useMemo(
+    () => new Set(selectableAccounts.map((account) => account?.accountType).filter(Boolean)),
+    [selectableAccounts]
+  );
+  const exploreProducts = useMemo(
+    () =>
+      ACCOUNT_PRODUCTS.filter((product) => !ownedAccountTypes.has(product.accountType)).slice(0, 3),
+    [ownedAccountTypes]
+  );
+  const capabilityItems = useMemo(
+    () => {
+      const selectedAccountRules = selectedAccount?.rules || {};
+
+      return [
+        {
+          label: "Cards",
+          value: selectedAccountRules.allowsCards ? "Available" : "Unavailable",
+          isAvailable: selectedAccountRules.allowsCards !== false,
+        },
+        {
+          label: "Bills",
+          value: selectedAccountRules.allowsBillPayments ? "Available" : "Unavailable",
+          isAvailable: selectedAccountRules.allowsBillPayments !== false,
+        },
+        {
+          label: "Transfers",
+          value: selectedAccountRules.allowsTransfers ? "Available" : "Unavailable",
+          isAvailable: selectedAccountRules.allowsTransfers !== false,
+        },
+        {
+          label: "Daily limit",
+          value: formatCurrency(selectedAccountRules.dailyTransferLimit || 0),
+          isAvailable: true,
+        },
+      ];
+    },
+    [selectedAccount?.rules]
+  );
+
   return (
     <div className="dashboard-page">
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} searchPlaceholder="Search transactions, cards, accounts..." />
 
         <main className="dashboard-content-area">
           <div className="container-fluid px-0 dashboard-shell">
             {isLoading ? (
-              <article className="dashboard-empty-state">
-                <p className="dashboard-empty-title">Loading account summary...</p>
-              </article>
-            ) : !selectedAccount ? (
-              <AccountRequiredState />
+              <section className="dashboard-section">
+                <article className="dashboard-panel">
+                  <div className="dashboard-panel-header dashboard-panel-header--stack">
+                    <div>
+                      <h2 className="dashboard-panel-title">Loading dashboard</h2>
+                      <p className="dashboard-panel-subtitle">
+                        Fetching your latest account summary.
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              </section>
+            ) : shouldShowAccountState ? (
+              <section className="dashboard-section">
+                <AccountRequiredState
+                  title="No account available"
+                  copy="Create or select an account to view your dashboard summary."
+                />
+              </section>
             ) : (
               <>
                 <div className="row g-4 align-items-stretch dashboard-hero-row">
@@ -111,7 +256,7 @@ export default function Dashboard() {
                         <span className="dashboard-currency">R</span>
                         <h1 className="dashboard-balance-amount">
                           {showBalance
-                            ? Number(dashboardSummary.totalAvailableBalance || 0).toLocaleString("en-ZA", {
+                            ? selectedAccountBalance.toLocaleString("en-ZA", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })
@@ -120,52 +265,86 @@ export default function Dashboard() {
                       </div>
 
                       <div className="dashboard-balance-footer">
-                        <span className="dashboard-trend-pill">
-                          <FiTrendingUp size={14} />
-                          {selectedAccount.name}
-                        </span>
+                        <div className="dashboard-balance-account">
+                          <span className="dashboard-trend-pill">
+                            <FiTrendingUp size={14} />
+                            {accountDisplayName}
+                          </span>
+                          <div className="dashboard-balance-account-meta">
+                            <span className="dashboard-balance-number">{accountDisplayNumber}</span>
+                            {accountDisplayType ? (
+                              <span className="dashboard-balance-hint">{accountDisplayType}</span>
+                            ) : null}
+                          </div>
+                        </div>
 
-                        <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+                        <label className="dashboard-account-select-wrap">
+                          <span className="dashboard-account-select-label">Choose account</span>
                           <select
                             className="dashboard-select"
-                            value={selectedAccount._id}
+                            value={selectedAccount?._id || ""}
                             onChange={(event) => selectAccount(event.target.value)}
                             aria-label="Select bank account"
                           >
-                            {accounts.map((account) => (
+                            {selectableAccounts.map((account) => (
                               <option key={account._id} value={account._id}>
-                                {account.name} • {account.accountNumber}
+                                {(account.name || account.accountType || "Account")} • {account.accountNumber}
                               </option>
                             ))}
                           </select>
-                          <span className="dashboard-balance-hint">{selectedAccount.accountNumber}</span>
-                        </div>
+                        </label>
+                      </div>
+
+                      <div className="dashboard-capability-row">
+                        {capabilityItems.map((item) => (
+                          <div key={item.label} className="dashboard-capability-pill">
+                            <span className="dashboard-capability-label">{item.label}</span>
+                            <strong
+                              className={`dashboard-capability-value ${
+                                item.isAvailable
+                                  ? "dashboard-capability-value--available"
+                                  : "dashboard-capability-value--unavailable"
+                              }`}
+                            >
+                              {item.value}
+                            </strong>
+                          </div>
+                        ))}
                       </div>
                     </section>
                   </div>
 
                   <div className="col-12 col-xl-4">
                     <section className="dashboard-actions-grid">
-                      {actionItems.map(({ label, icon: Icon, accentClass, path }) => (
-                        <button
-                          key={label}
-                          type="button"
-                          className="dashboard-action-card"
-                          onClick={() => navigate(path)}
-                        >
-                          <span className={`dashboard-action-icon ${accentClass}`}>
-                            <Icon size={22} />
-                          </span>
-                          <h2 className="dashboard-action-label">{label}</h2>
-                        </button>
-                      ))}
+                      {actionItems.map(({ label, icon: Icon, accentClass, path, isAvailable, helpText }) => {
+                        const available = isAvailable(selectedAccount);
+
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            className="dashboard-action-card"
+                            onClick={() => navigate(path)}
+                            disabled={!available}
+                            title={!available ? `${label} is not available for this account type.` : ""}
+                          >
+                            <span className={`dashboard-action-icon ${accentClass}`}>
+                              <Icon size={22} />
+                            </span>
+                            <h2 className="dashboard-action-label">{label}</h2>
+                            <p className="dashboard-action-copy">
+                              {available ? helpText : `${label} unavailable for this account.`}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </section>
                   </div>
                 </div>
 
                 <section className="dashboard-section">
                   <div className="dashboard-section-header">
-                    <h2 className="dashboard-section-title">Overview</h2>
+                    <h2 className="dashboard-section-title">Overview for choosen account</h2>
                   </div>
 
                   <div className="row g-4">
@@ -183,19 +362,65 @@ export default function Dashboard() {
                   </div>
                 </section>
 
+                {exploreProducts.length > 0 ? (
+                  <section className="dashboard-section">
+                    <article className="dashboard-panel">
+                      <div className="dashboard-panel-header">
+                        <div>
+                          <h2 className="dashboard-panel-title">Explore More Accounts</h2>
+                          <p className="dashboard-panel-subtitle">
+                            Add another product to match how you bank, save, or invest.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="dashboard-link-button"
+                          onClick={() => navigate("/accounts")}
+                        >
+                          View all accounts
+                        </button>
+                      </div>
+
+                      <div className="dashboard-product-grid">
+                        {exploreProducts.map((product) => (
+                          <article key={product.accountType} className="dashboard-product-card">
+                            <div className="dashboard-product-card__top">
+                              <div>
+                                <h3>{product.name}</h3>
+                                <p>{product.description}</p>
+                              </div>
+                              <span className="dashboard-product-badge">
+                                {formatCurrency(product.monthlyFee)}/mo
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="dashboard-product-button"
+                              onClick={() => navigate("/accounts")}
+                            >
+                              Create/Open
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    </article>
+                  </section>
+                ) : null}
+
                 <section className="dashboard-section">
                   <article className="dashboard-panel">
                     <div className="dashboard-panel-header dashboard-panel-header--stack">
                       <div>
                         <h2 className="dashboard-panel-title">Recent Transactions</h2>
                         <p className="dashboard-panel-subtitle">
-                          Latest activity for {selectedAccount.accountNumber}
+                          Latest activity for {accountDisplayNumber}
                         </p>
                       </div>
                     </div>
 
                     <div className="mt-4">
-                      <TransactionList transactions={dashboardSummary.recentTransactions} />
+                  <TransactionList transactions={filteredRecentTransactions} />
                     </div>
                   </article>
                 </section>

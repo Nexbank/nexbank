@@ -1,10 +1,26 @@
 const express = require("express");
-const router = express.Router();
-const mongoose = require("mongoose");
-const Account = require("../models/Account");
 const User = require("../models/User");
-const Transaction = require("../models/Transaction");
+const Account = require("../models/Account");
 const authMiddleware = require("../middleware/authMiddleware");
+const {
+  createTransaction,
+  getBankingSummary,
+  resolveInitialTransactionStatus,
+} = require("../services/ledgerService");
+
+const router = express.Router();
+
+async function loadSummary(userId) {
+  const summary = await getBankingSummary(userId);
+  return {
+    ...summary,
+    totalBalance: (summary.accounts || []).reduce(
+      (sum, item) =>
+        sum + Number(item.availableBalance ?? item.balance ?? item.ledgerBalance ?? 0),
+      0
+    ),
+  };
+}
 
 // GET ACCOUNTS
 router.get("/accounts", authMiddleware, async (req, res) => {
@@ -31,65 +47,52 @@ router.post("/pay-bill", authMiddleware, async (req, res) => {
       billerName,
       reference,
       accountId,
-      dynamicFields = {}
+      dynamicFields = {},
+      status,
     } = req.body;
 
     const parsedAmount = Number(amount);
     const parsedFee = Number(fee);
-    const totalDebit = parsedAmount + parsedFee;
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
     const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const account = await Account.findOne({
-      _id: accountId,
-      userId: user._id
-    });
-
-    if (!account) return res.status(404).json({ error: "Account not found" });
-
-    if (account.balance < totalDebit) {
-      return res.status(400).json({ error: "Insufficient balance" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Deduct from account
-    account.balance -= totalDebit;
-    await account.save();
-
-    // Create transaction like profile creates user
-    const transaction = await Transaction.create({
-      userId: user._id,
-      accountId: account._id,
+    const transaction = await createTransaction(user._id, {
+      accountId,
       amount: parsedAmount,
       fee: parsedFee,
       type: "bill",
-      category: category,
-      reference: reference || `${category} payment`,
-      status: "Completed",
-      billerName: billerName,           // Now this field exists in schema
-      dynamicFields: dynamicFields       // Now this field exists in schema
+      direction: "debit",
+      category: category || "",
+      status: resolveInitialTransactionStatus({
+        type: "bill",
+        status,
+      }),
+      reference: reference || `${category || "Bill"} payment`,
+      description: `Bill payment to ${billerName || "provider"}`,
+      metadata: {
+        category: category || "",
+        provider: billerName || "",
+        ...dynamicFields,
+      },
+      billerName: billerName || "",
+      dynamicFields,
     });
-
-    // Verify it was saved (like profile does)
-    const savedTransaction = await Transaction.findById(transaction._id);
-    
-    if (!savedTransaction) {
-      throw new Error("Transaction was not saved to database");
-    }
 
     return res.status(201).json({
       message: "Bill paid successfully",
-      transaction: savedTransaction,
-      newBalance: account.balance
+      transaction,
+      ...(await loadSummary(user._id)),
     });
-
   } catch (err) {
     console.error("PAY BILL ERROR:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 });
 

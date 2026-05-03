@@ -7,6 +7,34 @@ const authMiddleware = require("../middleware/authMiddleware");
 const Otp = require("../models/Otp");
 const nodemailer = require("nodemailer");
 
+const getDuplicateKeyMessage = (error) => {
+  const duplicateField =
+    Object.keys(error.keyPattern || {})[0] || Object.keys(error.keyValue || {})[0] || "";
+
+  if (duplicateField === "email") {
+    return "This email is already registered.";
+  }
+
+  if (duplicateField === "phone") {
+    return "This phone number is already registered.";
+  }
+
+  if (duplicateField === "saIdNumber") {
+    return "This SA ID number is already registered.";
+  }
+
+  return "A user with those details already exists";
+};
+
+const logServerError = (label, error) => {
+  if (process.env.NODE_ENV === "development") {
+    console.error(label, error);
+    return;
+  }
+
+  console.error(label, error?.message || "Unexpected server error");
+};
+
 // OTP helper
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000);
 
@@ -163,24 +191,25 @@ router.post("/reset-password", async (req, res) => {
 router.post("/register", async (req, res) => {
   try {
     const { firstname, surname, email, password, phone, saIdNumber, address } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!firstname || !surname || !email || !password || !phone || !saIdNumber || !address) {
+    if (!firstname || !surname || !normalizedEmail || !password || !phone || !saIdNumber || !address) {
       return res.status(400).json({ error: "Please fill all required fields" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ error: "Email already exists" });
+      return res.status(400).json({ error: "This email is already registered." });
     }
 
-    console.log(`Register attempt: ${email}`);
+    console.log(`Register attempt: ${normalizedEmail}`);
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
       firstname,
       surname,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       displayName: `${firstname} ${surname}`.trim(),
       phone,
@@ -190,15 +219,15 @@ router.post("/register", async (req, res) => {
     });
 
     await newUser.save();
-    console.log(`User registered: ${email}`);
+    console.log(`User registered: ${normalizedEmail}`);
 
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
-    console.error(error);
-
     if (error.code === 11000) {
-      return res.status(400).json({ error: "Email already exists" });
+      return res.status(400).json({ error: getDuplicateKeyMessage(error) });
     }
+
+    logServerError("Registration failed", error);
 
     res.status(500).json({ error: "Registration failed" });
   }
@@ -239,7 +268,7 @@ router.post("/login", async (req, res) => {
       user: safeUser,
     });
   } catch (error) {
-    console.error(error);
+    logServerError("Login failed", error);
     res.status(500).json({ error: "Login failed" });
   }
 });

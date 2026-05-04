@@ -4,25 +4,16 @@ import axios from "axios";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { useNotification } from "../components/Notification";
+import axios from "axios";
+import { useAccount } from "../context/AccountContext";
 
-const Profile = () => {
-  const navigate = useNavigate();
-  const { showNotification } = useNotification();
+const humanizeValue = (value = "") =>
+  String(value)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim();
 
-  const [userInfo, setUserInfo] = useState({});
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    email: "",
-    phone: "",
-    location: "",
-  });
-  const [preferences, setPreferences] = useState({
-    twoFactor: true,
-    pushNotifications: true,
-    language: "English (ZA)",
-  });
-
+const Profile = ({ search, setSearch, searchResults }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -46,6 +37,35 @@ const Profile = () => {
 
     fetchUser();
   }, []);
+  const navigate = useNavigate();
+  const { accounts, selectedAccount } = useAccount();
+
+  // State for user information
+  const [userInfo, setUserInfo] = useState({});
+  const [editForm, setEditForm] = useState({
+    email: "",
+    phone: "",
+    location: "",
+  });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // State for preferences
+  const [preferences, setPreferences] = useState({
+    twoFactor: true,
+    pushNotifications: true,
+    language: "English (ZA)",
+  });
+  const activeAccounts = accounts.filter(
+    (account) => account && account.status !== "closed" && account.isActive !== false
+  );
+  // 🔹 UI Consistency
+  // Profile separates customer membership from banking products by reading the live active-account state from AccountContext.
+  const primaryAccount = selectedAccount || activeAccounts[0] || null;
+  const primaryAccountName = primaryAccount?.name || "No active banking account yet.";
+  const primaryAccountType = primaryAccount?.accountType
+    ? humanizeValue(primaryAccount.accountType)
+    : "—";
+  const activeProductsCount = activeAccounts.length;
 
   const handleBackToDashboard = () => {
     navigate("/dashboard");
@@ -69,40 +89,44 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.put(
-        "http://localhost:5000/api/profile/update",
-        {
-          phone: editForm.phone,
-          location: editForm.location,
+  try {
+    const token = localStorage.getItem("token");
+
+    // Include email in the update
+    const res = await axios.put(
+      "http://localhost:5000/api/profile/update",
+      {
+        email: editForm.email,     // Add this
+        phone: editForm.phone,
+        location: editForm.location,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      }
+    );
+    
+    setUserInfo(res.data.user);
+    setEditForm({
+      email: res.data.user.email,
+      phone: res.data.user.phone,
+      location: res.data.user.location,
+    });
 
-      setUserInfo(res.data.user);
-      setEditForm({
-        email: res.data.user?.email || "",
-        phone: res.data.user?.phone || "",
-        location: res.data.user?.location || "",
-      });
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      setIsEditing(false);
+    // Update localStorage with new user data
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    
+    // Also update token if email changed (if your token includes email)
+    // You might need to re-login or refresh token here
 
-      showNotification("success", "Profile updated successfully!", {
-        title: "Success",
-      });
-    } catch (error) {
-      console.error(error);
-      showNotification("error", "Update failed", {
-        title: "Error",
-      });
-    }
-  };
+    setIsEditing(false);
+    alert("Profile updated successfully!");
+  } catch (error) {
+    console.error(error);
+    alert(error.response?.data?.error || "Update failed");
+  }
+};
 
   const handleCancel = () => {
     setEditForm({
@@ -187,14 +211,14 @@ const Profile = () => {
       <Sidebar />
 
       <div className="main">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
 
         <div className="content">
           <div className="profile-container">
             <div className="profile-header">
               <button
                 onClick={handleBackToDashboard}
-                className="profile-back-btn"
+                className="back-btn"
               >
                 Back
               </button>
@@ -215,9 +239,12 @@ const Profile = () => {
                     : "2024"}
                 </p>
 
-                <p className="profile-subtext">
-                  your account is: Basic Account
-                </p>
+                <div className="profile-subtext">
+                  <p>Customer tier: Premium Member</p>
+                  <p>Primary account: {primaryAccountName}</p>
+                  <p>Account type: {primaryAccountType}</p>
+                  <p>Active products: {activeProductsCount}</p>
+                </div>
               </div>
             </div>
 

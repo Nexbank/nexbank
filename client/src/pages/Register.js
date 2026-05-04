@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { useNotification } from "../components/Notification";
+import { showErrorAlert, showSuccessAlert } from "../utils/alerts";
 
 
 function Register() {
@@ -35,23 +35,17 @@ function Register() {
       !form.address ||
       !form.password
     ) {
-      showNotification("warning", "Please complete every required registration field.", {
-        title: "Incomplete Registration",
-      });
+      await showErrorAlert("Missing details", "Please fill all required fields.");
       return;
     }
 
     if (form.id.length !== 13 || Number.isNaN(Number(form.id))) {
-      showNotification("error", "South African ID numbers must contain exactly 13 digits.", {
-        title: "Invalid ID Number",
-      });
+      await showErrorAlert("Invalid SA ID", "SA ID must be exactly 13 digits.");
       return;
     }
 
     if (form.password !== form.confirm) {
-      showNotification("error", "Your password confirmation does not match.", {
-        title: "Password Mismatch",
-      });
+      await showErrorAlert("Passwords do not match", "Please confirm the same password in both fields.");
       return;
     }
 
@@ -63,7 +57,7 @@ function Register() {
     try {
       setIsSubmitting(true);
 
-      await API.post("/auth/register", {
+      const response = await API.post("/auth/register", {
         firstname: form.firstname.trim(),
         surname: form.surname.trim(),
         email: form.email.trim(),
@@ -73,15 +67,12 @@ function Register() {
         password: form.password,
       });
 
-      showNotification("success", "Your account has been created. You can log in now.", {
-        title: "Registration Successful",
-      });
-
-      showNotification("warning", "Keep your login details private and enable extra security after signing in.", {
-        title: "Security Tip",
-        duration: 6500,
-      });
-
+      await showSuccessAlert(
+        "Registration successful",
+        response.data.temporaryPin
+          ? `Your temporary PIN is ${response.data.temporaryPin}. Please change it in Settings.`
+          : "Please login to continue."
+      );
       navigate("/login");
     } catch (error) {
       const message =
@@ -89,9 +80,7 @@ function Register() {
         error.response?.data?.message ||
         "Registration failed. Please try again.";
 
-      showNotification("error", message, {
-        title: "Registration Failed",
-      });
+      await showErrorAlert("Registration failed", message);
     } finally {
       setIsSubmitting(false);
     }

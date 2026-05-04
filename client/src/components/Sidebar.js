@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
+  FiBriefcase,
+  FiCompass,
   FiGrid,
   FiMenu,
   FiRepeat,
@@ -15,6 +17,8 @@ import { useNotification } from "./Notification";
 
 const navItems = [
   { name: "Dashboard", path: "/dashboard", icon: FiGrid },
+  { name: "Accounts", path: "/accounts", icon: FiBriefcase },
+  { name: "Products", path: "/products", icon: FiCompass },
   { name: "Transactions", path: "/transactions", icon: FiRepeat },
   { name: "Cards", path: "/cards", icon: FiCreditCard },
   { name: "Insights", path: "/insights", icon: FiBarChart2 },
@@ -35,12 +39,7 @@ export default function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("userId");
-
-    showNotification("info", "You have been signed out of NexBank.", {
-      title: "Logout Successful",
-    });
-
+    window.dispatchEvent(new Event("nexbank-auth-changed"));
     navigate("/login");
   };
 

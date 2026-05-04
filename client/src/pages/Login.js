@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { useNotification } from "../components/Notification";
+import { showErrorAlert, showSuccessToast } from "../utils/alerts";
 
 function Login() {
   return (
@@ -48,9 +48,7 @@ function LoginForm() {
     event.preventDefault();
 
     if (!email || !password) {
-      showNotification("warning", "Please enter both your email and password.", {
-        title: "Missing Login Details",
-      });
+      await showErrorAlert("Missing details", "Please enter your email and password.");
       return;
     }
 
@@ -68,18 +66,10 @@ function LoginForm() {
       });
 
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userId", response.data.user._id);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      localStorage.setItem("userId", response.data.user?._id || response.data.user?.id || "");
-
-      showNotification("success", "Welcome back. Your account is ready.", {
-        title: "Login Successful",
-      });
-
-      showNotification("warning", "If this login was not you, reset your password immediately.", {
-        title: "Security Reminder",
-        duration: 6500,
-      });
-
+      window.dispatchEvent(new Event("nexbank-auth-changed"));
+      showSuccessToast("Login successful.");
       navigate("/dashboard");
     } catch (error) {
       const message =
@@ -87,9 +77,7 @@ function LoginForm() {
         error.response?.data?.message ||
         "Login failed. Please try again.";
 
-      showNotification("error", message, {
-        title: "Login Failed",
-      });
+      await showErrorAlert("Login failed", message);
     } finally {
       setIsSubmitting(false);
     }

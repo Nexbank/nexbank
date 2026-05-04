@@ -49,8 +49,9 @@ export default function Deposit() {
 
 const handleSubmit = async (event) => {
   event.preventDefault();
+  const amount = Number(form.amount);
 
-  if (!form.amount || Number(form.amount) <= 0) {
+  if (!Number.isFinite(amount) || amount <= 0) {
     alert("Please enter a valid deposit amount.");
     return;
   }
@@ -59,7 +60,7 @@ const handleSubmit = async (event) => {
     setIsSubmitting(true);
 
     const response = await API.post("/banking/deposit", {
-      amount: Number(form.amount),
+      amount,
       category: form.category,
       reference: form.reference,
       status: form.status,

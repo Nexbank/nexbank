@@ -51,17 +51,24 @@ export default function Withdraw() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const amount = Number(form.amount);
+    const fee = Number(form.fee || 0);
 
-    if (!form.amount || Number(form.amount) <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       alert("Please enter a valid withdrawal amount.");
+      return;
+    }
+
+    if (!Number.isFinite(fee) || fee < 0) {
+      alert("Please enter a valid withdrawal fee.");
       return;
     }
 
     try {
       setIsSubmitting(true);
       await API.post("/banking/withdraw", {
-        amount: Number(form.amount),
-        fee: Number(form.fee || 0),
+        amount,
+        fee,
         category: form.category,
         reference: form.reference,
         status: form.status,

@@ -1,35 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useNotification } from "../components/Notification";
-import axios from "axios";
 
 const Profile = () => {
+  const navigate = useNavigate();
+  const { showNotification } = useNotification();
+
+  const [userInfo, setUserInfo] = useState({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    email: "",
+    phone: "",
+    location: "",
+  });
+  const [preferences, setPreferences] = useState({
+    twoFactor: true,
+    pushNotifications: true,
+    language: "English (ZA)",
+  });
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const token = localStorage.getItem("token");
-
-        const res = await axios.get(
-          "http://localhost:5000/api/profile/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        setUserInfo(res.data);
-
-        // also sync edit form
-        setEditForm({
-          email: res.data.email,
-          phone: res.data.phone,
-          location: res.data.location,
+        const res = await axios.get("http://localhost:5000/api/profile/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
 
+        setUserInfo(res.data);
+        setEditForm({
+          email: res.data.email || "",
+          phone: res.data.phone || "",
+          location: res.data.location || "",
+        });
       } catch (error) {
         console.error("Failed to fetch user", error);
       }
@@ -37,30 +46,6 @@ const Profile = () => {
 
     fetchUser();
   }, []);
-  const navigate = useNavigate();
-  const { showNotification } = useNotification();
-
-  const [userInfo, setUserInfo] = useState({
-    email: "nicholatenozwole@gmail.com",
-    phone: "+27 82 123 4567",
-    location: "Johannesburg, South Africa",
-  });
-
-  const [isEditing, setIsEditing] = useState(false);
-  // State for user information
-  const [userInfo, setUserInfo] = useState({});
-  const [editForm, setEditForm] = useState({
-    email: "",
-    phone: "",
-    location: "",
-  });
-  const [isEditing, setIsEditing] = useState(false);
-
-  const [preferences, setPreferences] = useState({
-    twoFactor: true,
-    pushNotifications: true,
-    language: "English (ZA)",
-  });
 
   const handleBackToDashboard = () => {
     navigate("/dashboard");
@@ -86,7 +71,6 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const res = await axios.put(
         "http://localhost:5000/api/profile/update",
         {
@@ -99,20 +83,33 @@ const Profile = () => {
           },
         }
       );
+
       setUserInfo(res.data.user);
-      setEditForm(res.data.user);
-
+      setEditForm({
+        email: res.data.user?.email || "",
+        phone: res.data.user?.phone || "",
+        location: res.data.user?.location || "",
+      });
       localStorage.setItem("user", JSON.stringify(res.data.user));
-
       setIsEditing(false);
-      alert("Profile updated successfully!");
+
+      showNotification("success", "Profile updated successfully!", {
+        title: "Success",
+      });
     } catch (error) {
       console.error(error);
-      alert("Update failed");
+      showNotification("error", "Update failed", {
+        title: "Error",
+      });
     }
   };
 
   const handleCancel = () => {
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
     setIsEditing(false);
     showNotification("info", "Profile changes were discarded.", {
       title: "Edit Cancelled",
@@ -184,7 +181,6 @@ const Profile = () => {
       title: "Language Updated",
     });
   };
-  // 
 
   return (
     <div className="app">
@@ -315,7 +311,11 @@ const Profile = () => {
                     <span className="preference-name">
                       Two-Factor Authentication
                     </span>
-                    <span className={`preference-status ${preferences.twoFactor ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.twoFactor ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.twoFactor ? "Enabled" : "Disabled"}
                     </span>
                   </div>
@@ -332,7 +332,11 @@ const Profile = () => {
                     <span className="preference-name">
                       Push Notifications
                     </span>
-                    <span className={`preference-status ${preferences.pushNotifications ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.pushNotifications ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.pushNotifications ? "Enabled" : "Disabled"}
                     </span>
                   </div>

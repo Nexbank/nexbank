@@ -33,9 +33,8 @@ function Toggle({ on, onToggle }) {
 function SettingRow({ icon, title, subtitle, toggle, onToggle, chevron, onClick }) {
   return (
     <div
-      className="setting-row"
+      className={`setting-row ${onClick ? "setting-row--clickable" : ""}`}
       onClick={onClick}
-      style={onClick ? { cursor: "pointer" } : undefined}
     >
       <div className="setting-icon">{icon}</div>
 

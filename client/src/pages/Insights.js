@@ -1,201 +1,57 @@
-import { useMemo, useState } from "react";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
-import {
-  FiActivity,
-  FiArrowLeft,
-  FiCoffee,
-  FiFilm,
-  FiGift,
-  FiHeart,
-  FiPhone,
-  FiShoppingBag,
-  FiTruck,
-  FiTv,
-  FiZap,
-} from "react-icons/fi";
-
-const tx = (
-  item,
-  store,
-  amount,
-  transactionDate,
-  postingDate,
-  description,
-  longDescription,
-) => ({
-  item,
-  store,
-  details: {
-    transactionType: "Card Purchase",
-    amount,
-    fromAccount: "Main Account",
-    transactionDate,
-    postingDate,
-    description,
-    longDescription,
-  },
-});
-
-const insightHierarchy = {
-  Food: {
-    color: "#19c88a",
-    icon: FiShoppingBag,
-    subcategories: {
-      Groceries: {
-        color: "#19c88a",
-        icon: FiShoppingBag,
-        transactions: [
-          tx("Woolworths Essentials", "Woolworths", 1280, "2026-04-16T14:10:00", "2026-04-17", "Woolworths Sandton (Card 5024)", "WOOLWORTHS SANDTON ZA"),
-          tx("Pick n Pay Family Shop", "Pick n Pay", 940, "2026-04-11T10:45:00", "2026-04-12", "Pick n Pay Rosebank (Card 5024)", "PICK N PAY ROSEBANK ZA"),
-          tx("Checkers Fresh Produce", "Checkers", 760, "2026-04-06T18:25:00", "2026-04-07", "Checkers Menlyn (Card 5024)", "CHECKERS MENLYN ZA"),
-        ],
-      },
-      Takeaways: {
-        color: "#31c4b6",
-        icon: FiCoffee,
-        transactions: [
-          tx("KFC Lunch", "KFC", 185, "2026-04-18T13:08:00", "2026-04-19", "KFC Brooklyn Mall (Card 5024)", "KFC BROOKLYN MALL ZA"),
-          tx("McDonald's Drive Thru", "McDonald's", 142, "2026-04-09T19:41:00", "2026-04-10", "McDonald's Hatfield (Card 5024)", "MCDONALDS HATFIELD ZA"),
-        ],
-      },
-      Dining: {
-        color: "#4b8cff",
-        icon: FiCoffee,
-        transactions: [
-          tx("Birthday Dinner", "Life Grand Cafe", 540, "2026-04-13T20:10:00", "2026-04-14", "Life Grand Cafe Waterfall (Card 5024)", "LIFE GRAND CAFE WATERFALL ZA"),
-          tx("Weekend Brunch", "Tashas", 320, "2026-04-05T11:55:00", "2026-04-06", "Tashas Rosebank (Card 5024)", "TASHAS ROSEBANK ZA"),
-        ],
-      },
-    },
-  },
-  Transport: {
-    color: "#ff8a1e",
-    icon: FiTruck,
-    subcategories: {
-      "Private Transport": {
-        color: "#ff8a1e",
-        icon: FiTruck,
-        transactions: [
-          tx("Uber Ride", "Uber", 100, "2026-04-17T12:20:00", "2026-04-19", "Mogasetrans Pretoria (Card 5024)", "MOGASETRANS PRETORIA ZA"),
-          tx("Late Night Trip", "Uber", 135, "2026-04-08T22:12:00", "2026-04-09", "Uber Johannesburg (Card 5024)", "UBER JOHANNESBURG ZA"),
-        ],
-      },
-      "Public Transport": {
-        color: "#f4a62a",
-        icon: FiTruck,
-        transactions: [
-          tx("Gautrain Commute", "Gautrain", 220, "2026-04-15T07:10:00", "2026-04-15", "Gautrain Sandton (Card 5024)", "GAUTRAIN SANDTON ZA"),
-          tx("Bus Connector", "Gautrain Bus", 60, "2026-04-15T07:50:00", "2026-04-15", "Gautrain Bus Pretoria (Card 5024)", "GAUTRAIN BUS PRETORIA ZA"),
-        ],
-      },
-    },
-  },
-  Entertainment: {
-    color: "#a855f7",
-    icon: FiFilm,
-    transactions: [
-      tx("Cinema Night", "Ster-Kinekor", 260, "2026-04-12T18:35:00", "2026-04-13", "Ster-Kinekor Eastgate (Card 5024)", "STERKINEKOR EASTGATE ZA"),
-      tx("Weekend Drinks", "Tiger's Milk", 410, "2026-04-19T21:10:00", "2026-04-20", "Tiger's Milk Rosebank (Card 5024)", "TIGERS MILK ROSEBANK ZA"),
-    ],
-  },
-  Utilities: {
-    color: "#ff4747",
-    icon: FiZap,
-    transactions: [
-      tx("Electricity Top Up", "City Power", 950, "2026-04-10T09:14:00", "2026-04-10", "City Power Electricity (Card 5024)", "CITY POWER ELECTRICITY ZA"),
-      tx("Water Account", "Johannesburg Water", 580, "2026-04-10T09:18:00", "2026-04-10", "Johannesburg Water Services (Card 5024)", "JOHANNESBURG WATER SERVICES ZA"),
-    ],
-  },
-  Medical: {
-    color: "#ef5d7a",
-    icon: FiHeart,
-    transactions: [
-      tx("Pharmacy Refill", "Clicks Pharmacy", 240, "2026-04-14T17:06:00", "2026-04-15", "Clicks Pharmacy Sandton (Card 5024)", "CLICKS PHARMACY SANDTON ZA"),
-      tx("Clinic Visit", "Netcare", 680, "2026-04-03T09:35:00", "2026-04-03", "Netcare Clinic Pretoria (Card 5024)", "NETCARE CLINIC PRETORIA ZA"),
-    ],
-  },
-  "Airtime & Bundles": {
-    color: "#00b4d8",
-    icon: FiPhone,
-    transactions: [
-      tx("Monthly Data Bundle", "Vodacom", 299, "2026-04-02T08:45:00", "2026-04-02", "Vodacom Data Bundle (Card 5024)", "VODACOM DATA BUNDLE ZA"),
-      tx("Prepaid Airtime", "MTN", 120, "2026-04-18T18:02:00", "2026-04-18", "MTN Airtime Purchase (Card 5024)", "MTN AIRTIME PURCHASE ZA"),
-    ],
-  },
-  "Subscription Fees": {
-    color: "#8b5cf6",
-    icon: FiTv,
-    transactions: [
-      tx("Streaming Subscription", "Netflix", 159, "2026-04-01T06:00:00", "2026-04-01", "Netflix Subscription (Card 5024)", "NETFLIX.COM ZA"),
-      tx("Music Subscription", "Spotify", 69, "2026-04-04T06:15:00", "2026-04-04", "Spotify Premium (Card 5024)", "SPOTIFY PREM ZA"),
-      tx("Wallet Subscription", "Apple Pay", 129, "2026-04-07T11:32:00", "2026-04-07", "Apple Pay Subscription (Card 5024)", "APPLE.COM BILL ZA"),
-    ],
-  },
-  "Clothing & Accessories": {
-    color: "#f97316",
-    icon: FiGift,
-    transactions: [
-      tx("Workwear Purchase", "Zara", 850, "2026-04-06T16:05:00", "2026-04-07", "Zara Sandton City (Card 5024)", "ZARA SANDTON CITY ZA"),
-      tx("Jewellery Gift", "Sterns", 620, "2026-04-16T12:40:00", "2026-04-17", "Sterns Jewellery (Card 5024)", "STERNS JEWELLERY ZA"),
-    ],
-  },
-  "Lotto & Gambling": {
-    color: "#eab308",
-    icon: FiActivity,
-    transactions: [
-      tx("Sports Bet", "Hollywoodbets", 200, "2026-04-18T21:22:00", "2026-04-19", "Hollywoodbets Wallet Top Up (Card 5024)", "HOLLYWOODBETS WALLET ZA"),
-      tx("Weekly Lotto", "Lotto", 80, "2026-04-13T17:28:00", "2026-04-13", "National Lottery Entry (Card 5024)", "NATIONAL LOTTERY ZA"),
-    ],
-  },
-};
-
-const amountOf = (transactions) =>
-  transactions.reduce((sum, transaction) => sum + transaction.details.amount, 0);
-
-function formatCurrency(amount) {
-  return `R${amount.toLocaleString("en-ZA")}`;
-}
-
-function formatDateTime(dateString) {
-  return new Date(dateString).toLocaleString("en-ZA", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString("en-ZA", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function InsightsDonut({ data, totalSpent }) {
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import API from "../services/api";
-import { buildInsightsItems, formatCurrency } from "../utils/banking";
+import { buildInsightsItems, formatCurrency, formatTransactionDate } from "../utils/banking";
+import { FiArrowLeft } from "react-icons/fi";
 
+const SUBCATEGORY_RULES = {
+  Groceries: [
+    { label: "Supermarkets", keywords: ["woolworths", "checkers", "pick n pay", "shoprite", "spar"] },
+    { label: "Fresh Food", keywords: ["market", "produce", "fruit", "veg"] },
+  ],
+  Dining: [
+    { label: "Restaurants", keywords: ["restaurant", "cafe", "grill", "kitchen", "diner"] },
+    { label: "Fast Food", keywords: ["kfc", "mcd", "burger", "pizza", "nando"] },
+  ],
+  Transport: [
+    { label: "Ride Services", keywords: ["uber", "bolt", "ride"] },
+    { label: "Fuel & Transit", keywords: ["fuel", "shell", "engen", "gautrain", "taxi", "bus"] },
+  ],
+  Entertainment: [
+    { label: "Streaming", keywords: ["netflix", "spotify", "showmax", "youtube"] },
+    { label: "Leisure", keywords: ["cinema", "movie", "ticket", "games", "play"] },
+  ],
+  Utilities: [
+    { label: "Electricity", keywords: ["electric", "power", "prepaid"] },
+    { label: "Connectivity", keywords: ["water", "wifi", "fibre", "internet", "airtime", "data"] },
+  ],
+};
+
+const categoryClasses = {
+  groceries: "category-groceries",
+  utilities: "category-utilities",
+  entertainment: "category-entertainment",
+  transport: "category-transport",
+  dining: "category-dining",
+  medical: "category-medical",
+  airtime: "category-airtime",
+  subscription: "category-subscription",
+  clothing: "category-clothing",
+  gambling: "category-gambling",
+};
+
+/* ---------------- DONUT CHART ---------------- */
 function InsightsDonut({ items, totalSpent }) {
   const radius = 74;
   const circumference = 2 * Math.PI * radius;
   const gap = 8;
+
   let offset = 0;
 
   return (
     <div className="insights-donut-wrap">
-      <svg
-        viewBox="0 0 220 220"
-        className="insights-donut"
-        role="img"
-        aria-label="Monthly spending donut chart"
-      >
+      <svg viewBox="0 0 220 220" className="insights-donut">
         <circle
           cx="110"
           cy="110"
@@ -206,11 +62,11 @@ function InsightsDonut({ items, totalSpent }) {
         />
 
         {items.map((item) => {
-          const segmentLength = (item.amount / totalSpent) * circumference - gap;
-          const dashArray = `${Math.max(segmentLength, 0)} ${circumference}`;
-          const circleOffset = -offset;
+          const segment = (item.amount / totalSpent) * circumference;
+          const dash = `${Math.max(segment - gap, 0)} ${circumference}`;
 
-          offset += (item.amount / totalSpent) * circumference;
+          const circleOffset = -offset;
+          offset += segment;
 
           return (
             <circle
@@ -221,8 +77,7 @@ function InsightsDonut({ items, totalSpent }) {
               fill="none"
               stroke={item.color}
               strokeWidth="28"
-              strokeLinecap="butt"
-              strokeDasharray={dashArray}
+              strokeDasharray={dash}
               strokeDashoffset={circleOffset}
               transform="rotate(-90 110 110)"
             />
@@ -233,120 +88,298 @@ function InsightsDonut({ items, totalSpent }) {
   );
 }
 
-export default function Insights() {
-  const monthlySpending = useMemo(
-    () =>
-      Object.entries(insightHierarchy).map(([name, category]) => {
-        if (category.subcategories) {
-          const subcategories = Object.entries(category.subcategories).map(
-            ([subName, subcategory]) => ({
-              name: subName,
-              color: subcategory.color,
-              icon: subcategory.icon,
-              transactions: subcategory.transactions,
-              amount: amountOf(subcategory.transactions),
-            }),
-          );
+function normalizeText(value) {
+  return String(value || "").trim();
+}
 
-          return {
-            name,
-            color: category.color,
-            icon: category.icon,
-            subcategories,
-            amount: subcategories.reduce((sum, item) => sum + item.amount, 0),
-          };
-        }
+function normalizeCategoryKey(category) {
+  const normalized = normalizeText(category).toLowerCase();
 
-        return {
-          name,
-          color: category.color,
-          icon: category.icon,
-          transactions: category.transactions,
-          amount: amountOf(category.transactions),
-        };
-      }),
-    [],
+  if (normalized.includes("airtime")) return "airtime";
+  if (normalized.includes("subscription")) return "subscription";
+  if (normalized.includes("clothing")) return "clothing";
+  if (normalized.includes("gambling") || normalized.includes("lotto")) return "gambling";
+
+  return normalized
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getCategoryClass(category) {
+  const key = normalizeCategoryKey(category);
+
+  if (categoryClasses[key]) {
+    return categoryClasses[key];
+  }
+
+  const bucket = Array.from(key || "other").reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0
+  ) % 10;
+
+  return `category-auto-${bucket}`;
+}
+
+function getProgressWidthClass(percentage) {
+  const roundedPercentage = Math.min(100, Math.max(0, Math.round(percentage / 5) * 5));
+  return `progress-width-${roundedPercentage}`;
+}
+
+function toTitleCase(value) {
+  return normalizeText(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function deriveStoreName(transaction) {
+  const reference = normalizeText(transaction?.reference);
+  const name = normalizeText(transaction?.name);
+  const category = normalizeText(transaction?.category);
+  const preferred = reference || name;
+
+  if (!preferred) {
+    return category || "Unknown";
+  }
+
+  const generatedLabels = [
+    `${category} withdrawal`,
+    `${category} deposit`,
+    "withdrawal",
+    "deposit",
+  ]
+    .map((label) => label.toLowerCase());
+
+  if (generatedLabels.includes(preferred.toLowerCase())) {
+    return category || "Unknown";
+  }
+
+  const cleaned = preferred
+    .replace(/\b(withdrawal|deposit|payment|transfer)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned ? toTitleCase(cleaned) : category || "Unknown";
+}
+
+function deriveSubcategory(transaction) {
+  const category = normalizeText(transaction?.category);
+  const explicitSubcategory = normalizeText(transaction?.subcategory);
+
+  if (explicitSubcategory) {
+    return explicitSubcategory;
+  }
+
+  const source = `${normalizeText(transaction?.reference)} ${normalizeText(
+    transaction?.name
+  )} ${deriveStoreName(transaction)}`.toLowerCase();
+
+  const rules = SUBCATEGORY_RULES[category] || [];
+  const matchedRule = rules.find((rule) =>
+    rule.keywords.some((keyword) => source.includes(keyword))
   );
 
-  const totalSpent = monthlySpending.reduce((sum, item) => sum + item.amount, 0);
+  return matchedRule?.label || "General";
+}
+
+function normalizeTransaction(transaction, fallbackCategory) {
+  const amount = Number(transaction?.amount || 0);
+  const category = normalizeText(transaction?.category) || fallbackCategory || "Unknown";
+  const store = deriveStoreName(transaction);
+  const reference =
+    normalizeText(transaction?.reference) ||
+    normalizeText(transaction?.name) ||
+    "Unknown";
+  const id =
+    normalizeText(transaction?._id) ||
+    normalizeText(transaction?.id) ||
+    normalizeText(transaction?.transactionId) ||
+    "Unknown";
+  const date =
+    transaction?.date ||
+    transaction?.createdAt ||
+    transaction?.transactionDate ||
+    null;
+
+  return {
+    id,
+    store,
+    amount,
+    date,
+    category,
+    subcategory: deriveSubcategory({ ...transaction, category }),
+    description:
+      normalizeText(transaction?.description) ||
+      normalizeText(transaction?.name) ||
+      reference ||
+      "Unknown",
+    reference,
+    transactionId: id,
+    raw: transaction,
+  };
+}
+
+function buildDrillDownItems(breakdown, recentTransactions) {
+  const normalizedTransactions = (recentTransactions || [])
+    .filter((transaction) => {
+      const type = normalizeText(transaction?.type).toLowerCase();
+      return type === "withdrawal" || Number(transaction?.impactAmount || 0) < 0;
+    })
+    .map((transaction) => normalizeTransaction(transaction));
+
+  const categoryTransactionMap = normalizedTransactions.reduce((map, transaction) => {
+    const current = map.get(transaction.category) || [];
+    current.push(transaction);
+    map.set(transaction.category, current);
+    return map;
+  }, new Map());
+
+  return buildInsightsItems(breakdown).map((item) => {
+    const categoryTransactions = categoryTransactionMap.get(item.name) || [];
+    const subcategoryMap = categoryTransactions.reduce((map, transaction) => {
+      const key = transaction.subcategory || "General";
+      const current = map.get(key) || [];
+      current.push(transaction);
+      map.set(key, current);
+      return map;
+    }, new Map());
+
+    const subcategories =
+      subcategoryMap.size > 0
+        ? Array.from(subcategoryMap.entries()).map(([name, transactions]) => ({
+            name,
+            amount: transactions.reduce(
+              (sum, transaction) => sum + Number(transaction.amount || 0),
+              0
+            ),
+            transactions,
+          }))
+        : [
+            {
+              name: "General",
+              amount: item.amount,
+              transactions: [],
+            },
+          ];
+
+    return {
+      ...item,
+      subcategories,
+      transactions: categoryTransactions,
+    };
+  });
+}
+
+function renderEmptyMessage(message) {
+  return <p className="insights-empty-message">{message}</p>;
+}
+
+/* ---------------- MAIN PAGE ---------------- */
+export default function Insights() {
+  const [overview, setOverview] = useState({
+    insights: { totalSpent: 0, breakdown: [] },
+    recentTransactions: [],
+  });
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [drillDownLevel, setDrillDownLevel] = useState(1);
+  const [level, setLevel] = useState(1);
 
-  const handleCategoryClick = (category) => {
-    setSelectedCategory(category);
-    setSelectedSubcategory(null);
-    setSelectedTransaction(null);
-    setDrillDownLevel(category.subcategories ? 2 : 3);
-  };
-
-  const handleSubcategoryClick = (subcategory) => {
-    setSelectedSubcategory(subcategory);
-    setSelectedTransaction(null);
-    setDrillDownLevel(3);
-  };
-
-  const handleTransactionClick = (transaction) => {
-    setSelectedTransaction(transaction);
-    setDrillDownLevel(4);
-  };
-
-  const handleBack = () => {
-    if (drillDownLevel === 5) return setDrillDownLevel(4);
-    if (drillDownLevel === 4) {
-      setSelectedTransaction(null);
-      return setDrillDownLevel(3);
-    }
-    if (drillDownLevel === 3 && selectedCategory?.subcategories) {
-      setSelectedSubcategory(null);
-      return setDrillDownLevel(2);
-    }
-    setSelectedCategory(null);
-    setSelectedSubcategory(null);
-    setSelectedTransaction(null);
-    setDrillDownLevel(1);
-  };
-
-  const currentTransactions =
-    selectedSubcategory?.transactions || selectedCategory?.transactions || [];
-  const [overview, setOverview] = useState({
-    insights: { totalSpent: 0, breakdown: [] },
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const storedUser = useMemo(() => {
+  const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch (error) {
+    } catch {
       return {};
     }
   }, []);
 
+  const userName =
+    user.firstname ||
+    user.displayName?.split(" ")[0] ||
+    user.email?.split("@")[0] ||
+    "User";
+
+  /* FETCH DATA */
   useEffect(() => {
-    const fetchOverview = async () => {
+    const fetchData = async () => {
       try {
-        setIsLoading(true);
-        const response = await API.get("/banking/overview");
-        setOverview(response.data);
-      } catch (error) {
+        setLoading(true);
+        const res = await API.get("/banking/overview");
+        setOverview({
+          insights: res.data?.insights || { totalSpent: 0, breakdown: [] },
+          recentTransactions: res.data?.recentTransactions || [],
+        });
+      } catch (err) {
         setOverview({
           insights: { totalSpent: 0, breakdown: [] },
+          recentTransactions: [],
         });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchOverview();
+    fetchData();
   }, []);
 
-  const monthlySpending = buildInsightsItems(overview.insights.breakdown);
-  const totalSpent = overview.insights.totalSpent;
-  const userName =
-    storedUser.firstname ||
-    storedUser.displayName?.split(" ")[0] ||
-    storedUser.email?.split("@")[0] ||
-    "User";
+  /* BUILD DATA */
+  const monthlySpending = useMemo(
+    () =>
+      buildDrillDownItems(
+        overview.insights?.breakdown || [],
+        overview.recentTransactions || []
+      ),
+    [overview]
+  );
+  const totalSpent =
+    Number(overview.insights?.totalSpent || 0) ||
+    monthlySpending.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  /* HANDLERS */
+  const handleCategorySelect = (item) => {
+    setSelectedCategory(item);
+    setSelectedSubcategory(null);
+    setSelectedTransaction(null);
+    setLevel(2);
+  };
+
+  const handleSubcategorySelect = (subcategory) => {
+    setSelectedSubcategory(subcategory);
+    setSelectedTransaction(null);
+    setLevel(3);
+  };
+
+  const handleTransactionSelect = (transaction) => {
+    setSelectedTransaction(transaction);
+    setLevel(4);
+  };
+
+  const back = () => {
+    if (level === 4) {
+      setSelectedTransaction(null);
+      setLevel(3);
+      return;
+    }
+
+    if (level === 3) {
+      setSelectedSubcategory(null);
+      setSelectedTransaction(null);
+      setLevel(2);
+      return;
+    }
+
+    if (level === 2) {
+      setSelectedCategory(null);
+      setSelectedSubcategory(null);
+      setSelectedTransaction(null);
+      setLevel(1);
+    }
+  };
+
+  const currentTransactions = selectedSubcategory?.transactions || [];
 
   return (
     <div className="dashboard-page insights-page">
@@ -365,270 +398,117 @@ export default function Insights() {
 
             <div className="insights-grid">
               <article className="insights-chart-card">
-                {totalSpent > 0 ? <InsightsDonut items={monthlySpending} totalSpent={totalSpent} /> : null}
+                {totalSpent > 0 ? (
+                  <InsightsDonut items={monthlySpending} totalSpent={totalSpent} />
+                ) : null}
 
                 <div className="insights-total">
                   <p className="insights-total-label">TOTAL SPENT</p>
                   <h2 className="insights-total-value">{formatCurrency(totalSpent)}</h2>
                 </div>
 
-                <div
-                  style={{
-                    width: "100%",
-                    marginTop: 22,
-                    paddingTop: 20,
-                    borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 14,
-                    }}
-                  >
+                <div className="insights-drilldown-section">
+                  <div className="insights-drilldown-head">
                     <div>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "#8f9198",
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: "0.12em",
-                        }}
-                      >
-                        INSIGHT DRILL-DOWN
-                      </p>
-                      <h3
-                        style={{
-                          margin: "6px 0 0",
-                          color: "#f5f7fa",
-                          fontSize: 18,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {drillDownLevel === 1 && "Select a category"}
-                        {drillDownLevel === 2 &&
-                          `${selectedCategory?.name} subcategories`}
-                        {drillDownLevel === 3 &&
-                          `${selectedSubcategory?.name || selectedCategory?.name} transactions`}
-                        {drillDownLevel === 4 && "Store name"}
-                        {drillDownLevel === 5 && "Transaction details"}
+                      <p className="insights-drilldown-kicker">INSIGHT DRILL-DOWN</p>
+                      <h3 className="insights-drilldown-title">
+                        {level === 1 && "Select a category"}
+                        {level === 2 && `${selectedCategory?.name || "Category"} subcategories`}
+                        {level === 3 &&
+                          `${selectedSubcategory?.name || "Subcategory"} transactions`}
+                        {level === 4 && "Transaction receipt"}
                       </h3>
                     </div>
 
-                    {drillDownLevel > 1 && (
-                      <button
-                        type="button"
-                        onClick={handleBack}
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          color: "#19c88a",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 700,
-                        }}
-                      >
-                        <FiArrowLeft size={14} />
-                        Back
+                    {level > 1 && (
+                      <button type="button" onClick={back} className="back-btn">
+                        <FiArrowLeft /> Back
                       </button>
                     )}
                   </div>
 
-                  {drillDownLevel === 1 && (
-                    <p
-                      style={{
-                        margin: 0,
-                        color: "#b6bac2",
-                        fontSize: 14,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Click any category on the right to explore monthly purchases,
-                      then drill down into the store and full transaction details.
-                    </p>
-                  )}
+                  {level === 1 &&
+                    renderEmptyMessage(
+                      "Select any category from the breakdown to explore subcategories, recent store-level transactions, and a full receipt view."
+                    )}
 
-                  {drillDownLevel === 2 && selectedCategory?.subcategories && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {level === 2 && selectedCategory && (
+                    <div className="insights-drilldown-list">
                       {selectedCategory.subcategories.map((subcategory) => (
                         <button
                           key={`${selectedCategory.name}-${subcategory.name}`}
                           type="button"
-                          onClick={() => handleSubcategoryClick(subcategory)}
-                          style={{
-                            width: "100%",
-                            border: "1px solid rgba(255, 255, 255, 0.06)",
-                            background: "#171717",
-                            borderRadius: 16,
-                            padding: "14px 16px",
-                            color: "#f5f7fa",
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
+                          onClick={() => handleSubcategorySelect(subcategory)}
+                          className="insights-drilldown-button"
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 12,
-                            }}
-                          >
-                            <span style={{ fontSize: 14, fontWeight: 700 }}>
-                              {subcategory.name}
-                            </span>
-                            <span style={{ fontSize: 14, fontWeight: 700 }}>
+                          <div className="insights-drilldown-row">
+                            <span className="insights-drilldown-name">{subcategory.name}</span>
+                            <span className="insights-drilldown-amount">
                               {formatCurrency(subcategory.amount)}
                             </span>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {drillDownLevel === 3 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {currentTransactions.map((transaction) => (
-                        <button
-                          key={`${transaction.item}-${transaction.store}`}
-                          type="button"
-                          onClick={() => handleTransactionClick(transaction)}
-                          style={{
-                            width: "100%",
-                            border: "1px solid rgba(255, 255, 255, 0.06)",
-                            background: "#171717",
-                            borderRadius: 16,
-                            padding: "14px 16px",
-                            color: "#f5f7fa",
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 12,
-                            }}
-                          >
-                            <span style={{ fontSize: 14, fontWeight: 700 }}>
-                              {transaction.item}
-                            </span>
-                            <span style={{ fontSize: 14, fontWeight: 700 }}>
-                              {formatCurrency(transaction.details.amount)}
-                            </span>
-                          </div>
-                          <p
-                            style={{
-                              margin: "6px 0 0",
-                              color: "#8f9198",
-                              fontSize: 12,
-                            }}
-                          >
-                            {transaction.store}
+                          <p className="insights-drilldown-meta">
+                            {subcategory.transactions.length > 0
+                              ? `${subcategory.transactions.length} recent transaction${
+                                  subcategory.transactions.length === 1 ? "" : "s"
+                                }`
+                              : "No recent transactions available from overview data"}
                           </p>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {drillDownLevel === 4 && selectedTransaction && (
-                    <button
-                      type="button"
-                      onClick={() => setDrillDownLevel(5)}
-                      style={{
-                        width: "100%",
-                        border: "1px solid rgba(255, 255, 255, 0.06)",
-                        background: "#171717",
-                        borderRadius: 16,
-                        padding: "16px 18px",
-                        color: "#f5f7fa",
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "#8f9198",
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: "0.12em",
-                        }}
-                      >
-                        STORE NAME
-                      </p>
-                      <h4
-                        style={{
-                          margin: "8px 0 6px",
-                          fontSize: 20,
-                          fontWeight: 800,
-                        }}
-                      >
-                        {selectedTransaction.store}
-                      </h4>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "#b6bac2",
-                          fontSize: 13,
-                        }}
-                      >
-                        Click again to reveal the full transaction details.
-                      </p>
-                    </button>
-                  )}
+                  {level === 3 &&
+                    (currentTransactions.length > 0 ? (
+                      <div className="insights-drilldown-list">
+                        {currentTransactions.map((transaction) => (
+                          <button
+                            key={transaction.id}
+                            type="button"
+                            onClick={() => handleTransactionSelect(transaction)}
+                            className="insights-drilldown-button"
+                          >
+                            <div className="insights-drilldown-row">
+                              <span className="insights-drilldown-name">{transaction.store}</span>
+                              <span className="insights-drilldown-amount">
+                                {formatCurrency(transaction.amount)}
+                              </span>
+                            </div>
+                            <p className="insights-drilldown-meta">{transaction.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      renderEmptyMessage(
+                        "No recent transactions were returned for this subcategory. Category totals still reflect the backend breakdown."
+                      )
+                    ))}
 
-                  {drillDownLevel === 5 && selectedTransaction && (
-                    <div
-                      style={{
-                        border: "1px solid rgba(255, 255, 255, 0.06)",
-                        background: "#171717",
-                        borderRadius: 16,
-                        padding: "16px 18px",
-                        display: "grid",
-                        gap: 12,
-                      }}
-                    >
+                  {level === 4 && selectedTransaction && (
+                    <div className="insights-receipt">
+                      <div className="insights-receipt-head">
+                        <p className="insights-receipt-kicker">TRANSACTION RECEIPT</p>
+                        <h3 className="insights-receipt-title">{selectedTransaction.store}</h3>
+                        <p className="insights-receipt-amount">
+                          {formatCurrency(selectedTransaction.amount)}
+                        </p>
+                      </div>
+
                       {[
-                        ["Transaction Type", selectedTransaction.details.transactionType],
-                        ["Amount", formatCurrency(selectedTransaction.details.amount)],
-                        ["From Account", selectedTransaction.details.fromAccount],
-                        ["Transaction Date", formatDateTime(selectedTransaction.details.transactionDate)],
-                        ["Posting Date", formatDate(selectedTransaction.details.postingDate)],
-                        ["Description", selectedTransaction.details.description],
-                        ["Long Description", selectedTransaction.details.longDescription],
+                        ["Date", formatTransactionDate(selectedTransaction.date)],
+                        ["Category", selectedTransaction.category || "Unknown"],
+                        ["Subcategory", selectedTransaction.subcategory || "General"],
+                        ["Description", selectedTransaction.description || "Unknown"],
+                        ["Reference", selectedTransaction.reference || "Unknown"],
+                        [
+                          "Transaction ID",
+                          selectedTransaction.transactionId || "Unknown",
+                        ],
                       ].map(([label, value]) => (
                         <div key={label}>
-                          <p
-                            style={{
-                              margin: 0,
-                              color: "#8f9198",
-                              fontSize: 11,
-                              fontWeight: 800,
-                              letterSpacing: "0.1em",
-                            }}
-                          >
-                            {label}
-                          </p>
-                          <p
-                            style={{
-                              margin: "6px 0 0",
-                              color: "#f5f7fa",
-                              fontSize: 14,
-                              lineHeight: 1.5,
-                            }}
-                          >
-                            {value}
-                          </p>
+                          <p className="insights-receipt-label">{label}</p>
+                          <p className="insights-receipt-value">{value || "Unknown"}</p>
                         </div>
                       ))}
                     </div>
@@ -638,11 +518,13 @@ export default function Insights() {
 
               <section className="insights-breakdown">
                 <div className="insights-breakdown-list">
-                  {isLoading ? (
+                  {loading ? (
                     <article className="insights-category-card">
                       <div className="insights-category-main">
                         <div className="insights-category-header">
-                          <span className="insights-category-name">Loading insights...</span>
+                          <span className="insights-category-name">
+                            Loading insights...
+                          </span>
                         </div>
                       </div>
                     </article>
@@ -650,22 +532,33 @@ export default function Insights() {
                     <article className="insights-category-card">
                       <div className="insights-category-main">
                         <div className="insights-category-header">
-                          <span className="insights-category-name">No spending captured yet</span>
-                          <span className="insights-category-amount">{formatCurrency(0)}</span>
+                          <span className="insights-category-name">
+                            No spending captured yet
+                          </span>
+                          <span className="insights-category-amount">
+                            {formatCurrency(0)}
+                          </span>
                         </div>
                       </div>
                     </article>
                   ) : (
                     monthlySpending.map((item) => {
                       const Icon = item.icon;
-                      const percentage = (item.amount / totalSpent) * 100;
+                      const percentage =
+                        totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0;
+                      const isActive = selectedCategory?.name === item.name;
+                      const categoryClass = getCategoryClass(item.name);
+                      const activeClass = isActive ? "is-active" : "";
+                      const progressWidthClass = getProgressWidthClass(percentage);
 
                       return (
-                        <article className="insights-category-card" key={item.name}>
-                          <div
-                            className="insights-category-icon"
-                            style={{ backgroundColor: item.color }}
-                          >
+                        <button
+                          key={item.name}
+                          type="button"
+                          className={`insights-category-card ${categoryClass} ${activeClass}`}
+                          onClick={() => handleCategorySelect(item)}
+                        >
+                          <div className="insights-category-icon">
                             <Icon size={18} />
                           </div>
 
@@ -679,15 +572,11 @@ export default function Insights() {
 
                             <div className="insights-progress-track">
                               <span
-                                className="insights-progress-fill"
-                                style={{
-                                  width: `${percentage}%`,
-                                  backgroundColor: item.color,
-                                }}
+                                className={`insights-progress-fill ${progressWidthClass}`}
                               />
                             </div>
                           </div>
-                        </article>
+                        </button>
                       );
                     })
                   )}

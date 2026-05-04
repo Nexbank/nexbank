@@ -6,13 +6,12 @@ function Navbar({
   userName = "user",
   membershipLabel = "Premium Member",
   searchPlaceholder = "Search transactions, features...",
-  style,
 }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { notificationFeed } = useNotification();
 
   return (
-    <header className="navbar" style={style} aria-label="Top navigation bar">
+    <header className="navbar" aria-label="Top navigation bar">
       <label className="navbar__search" aria-label="Search">
         <FiSearch size={18} className="navbar__search-icon" />
         <input

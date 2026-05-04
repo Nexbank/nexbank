@@ -4242,6 +4242,12 @@ body {
   margin-top: 32px;
 }
 
+.settings-pin-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
 /* =========================
    TOGGLE SWITCH
 ========================= */

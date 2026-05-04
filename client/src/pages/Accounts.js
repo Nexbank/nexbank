@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiBriefcase, FiPlus } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";

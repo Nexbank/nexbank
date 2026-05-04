@@ -251,6 +251,34 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
+    // CHECK IF 2FA IS ENABLED
+    if (user.twoFactorEnabled) {
+      const otpCode = generateOtp();
+
+      await Otp.deleteMany({ email, type: "login" });
+
+      await Otp.create({
+        userId: user._id,
+        email,
+        type: "login",
+        otp: otpCode,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      });
+
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Your NexBank Login Code",
+        html: `<h2>Your code is: ${otpCode}</h2>`,
+      });
+
+      return res.json({
+        message: "2FA required",
+        twoFactorRequired: true,
+        email,
+      });
+    }
+
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET || "nexbank-dev-secret",
@@ -272,5 +300,50 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: "Login failed" });
   }
 });
+
+// 2-factor authentication
+router.post("/verify-login-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const record = await Otp.findOne({
+      email,
+      type: "login",
+      otp,
+    });
+
+    if (!record) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await Otp.deleteOne({ _id: record._id });
+      return res.status(400).json({ error: "OTP expired" });
+    }
+
+    const user = await User.findOne({ email });
+
+    await Otp.deleteOne({ _id: record._id });
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET || "nexbank-dev-secret",
+      { expiresIn: "1d" }
+    );
+
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: safeUser,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: "Verification failed" });
+  }
+});
+
 
 module.exports = router;

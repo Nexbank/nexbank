@@ -4,8 +4,15 @@ import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import axios from "axios";
+import { useAccount } from "../context/AccountContext";
 
-const Profile = () => {
+const humanizeValue = (value = "") =>
+  String(value)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim();
+
+const Profile = ({ search, setSearch, searchResults }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -37,6 +44,7 @@ const Profile = () => {
     fetchUser();
   }, []);
   const navigate = useNavigate();
+  const { accounts, selectedAccount } = useAccount();
 
   // State for user information
   const [userInfo, setUserInfo] = useState({});
@@ -53,6 +61,17 @@ const Profile = () => {
     pushNotifications: true,
     language: "English (ZA)",
   });
+  const activeAccounts = accounts.filter(
+    (account) => account && account.status !== "closed" && account.isActive !== false
+  );
+  // 🔹 UI Consistency
+  // Profile separates customer membership from banking products by reading the live active-account state from AccountContext.
+  const primaryAccount = selectedAccount || activeAccounts[0] || null;
+  const primaryAccountName = primaryAccount?.name || "No active banking account yet.";
+  const primaryAccountType = primaryAccount?.accountType
+    ? humanizeValue(primaryAccount.accountType)
+    : "—";
+  const activeProductsCount = activeAccounts.length;
 
   const handleBackToDashboard = () => {
     navigate("/dashboard");
@@ -156,7 +175,7 @@ const Profile = () => {
       <Sidebar />
 
       <div className="main">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
 
         {/* 🔥 THIS FIXES YOUR SCROLL ISSUE */}
         <div className="content">
@@ -166,7 +185,7 @@ const Profile = () => {
             <div className="profile-header">
               <button
                 onClick={handleBackToDashboard}
-                className="profile-back-btn"
+                className="back-btn"
               >
                 ←
               </button>
@@ -187,9 +206,12 @@ const Profile = () => {
                     : "2024"}
                 </p>
 
-                <p className="profile-subtext">
-                  your account is: Basic Account
-                </p>
+                <div className="profile-subtext">
+                  <p>Customer tier: Premium Member</p>
+                  <p>Primary account: {primaryAccountName}</p>
+                  <p>Account type: {primaryAccountType}</p>
+                  <p>Active products: {activeProductsCount}</p>
+                </div>
               </div>
             </div>
 

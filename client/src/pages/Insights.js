@@ -1,4 +1,4 @@
-import AccountRequiredState from "../components/AccountRequiredState";
+import { useMemo } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { getCategoryMeta } from "../constants/transactionCategories";
@@ -56,14 +56,27 @@ function InsightsDonut({ items, totalSpent }) {
   );
 }
 
-export default function Insights() {
-  const { accounts, selectedAccount, insightsSummary, isLoading, selectAccount } = useAccount();
+export default function Insights({ search, setSearch, searchResults }) {
+  const { accounts, selectedAccount, insightsSummary, selectAccount } = useAccount();
 
   const monthlySpending = insightsSummary.categories.map((category) => ({
     name: category.label,
     amount: category.amount,
     ...getCategoryMeta(category.label),
   }));
+  const filteredSpending = useMemo(() => {
+    const searchValue = (search || "").trim().toLowerCase();
+
+    if (!searchValue) {
+      return monthlySpending;
+    }
+
+    return monthlySpending.filter(
+      (item) =>
+        item.name?.toLowerCase().includes(searchValue) ||
+        String(item.amount).includes(searchValue)
+    );
+  }, [monthlySpending, search]);
   const totalSpent = insightsSummary.totalSpent;
 
   return (
@@ -71,18 +84,11 @@ export default function Insights() {
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} searchPlaceholder="Search spending categories..." />
 
         <main className="dashboard-content-area">
           <div className="container-fluid px-0 dashboard-shell">
-            {isLoading ? (
-              <article className="dashboard-empty-state">
-                <p className="dashboard-empty-title">Loading insights...</p>
-              </article>
-            ) : !selectedAccount ? (
-              <AccountRequiredState />
-            ) : (
-              <section className="dashboard-section">
+            <section className="dashboard-section">
                 <div className="insights-heading-wrap d-flex align-items-center justify-content-between gap-3 flex-wrap">
                   <div>
                     <p className="action-page__eyebrow mb-2">Insights</p>
@@ -108,7 +114,7 @@ export default function Insights() {
 
                 <div className="insights-grid">
                   <article className="insights-chart-card">
-                    {totalSpent > 0 ? <InsightsDonut items={monthlySpending} totalSpent={totalSpent} /> : null}
+                    {totalSpent > 0 ? <InsightsDonut items={filteredSpending} totalSpent={totalSpent} /> : null}
 
                     <div className="insights-total">
                       <p className="insights-total-label">TOTAL SPENT</p>
@@ -120,7 +126,7 @@ export default function Insights() {
                     <p className="insights-breakdown-label">CATEGORY BREAKDOWN</p>
 
                     <div className="insights-breakdown-list">
-                      {monthlySpending.length === 0 ? (
+                      {filteredSpending.length === 0 ? (
                         <article className="insights-category-card">
                           <div className="insights-category-main">
                             <div className="insights-category-header">
@@ -130,7 +136,7 @@ export default function Insights() {
                           </div>
                         </article>
                       ) : (
-                        monthlySpending.map((item) => {
+                        filteredSpending.map((item) => {
                           const Icon = item.icon;
                           const percentage = totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0;
 
@@ -169,7 +175,6 @@ export default function Insights() {
                   </section>
                 </div>
               </section>
-            )}
           </div>
         </main>
       </div>

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FiBell, FiSearch } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import { formatCurrency } from "../utils/currency";
 
 const defaultNotifications = [
   {
@@ -28,8 +30,10 @@ function Navbar({
   searchPlaceholder = "Search transactions, features...",
   search = "",
   setSearch,
+  searchResults,
   style,
 }) {
+  const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const storedUser = (() => {
     try {
@@ -43,19 +47,97 @@ function Navbar({
     storedUser?.displayName ||
     [storedUser?.firstname, storedUser?.surname].filter(Boolean).join(" ") ||
     "user";
+  const searchValue = search.trim();
+  const hasQuery = searchValue.length > 0;
+  const transactions = useMemo(
+    () => searchResults?.transactions || [],
+    [searchResults?.transactions]
+  );
+  const actions = searchResults?.actions || [];
+  const hasResults = transactions.length > 0 || actions.length > 0;
+  const formattedTransactions = useMemo(
+    () =>
+      transactions.map((transaction) => ({
+        ...transaction,
+        displayDate: transaction.createdAt
+          ? new Date(transaction.createdAt).toLocaleDateString("en-ZA", {
+              day: "2-digit",
+              month: "short",
+            })
+          : "",
+      })),
+    [transactions]
+  );
+
+  const handleResultSelect = (path) => {
+    setSearch?.("");
+    navigate(path);
+  };
 
   return (
     <header className="navbar" style={style} aria-label="Top navigation bar">
-      <label className="navbar__search" aria-label="Search">
-        <FiSearch size={18} className="navbar__search-icon" />
-        <input
-          type="search"
-          placeholder={searchPlaceholder}
-          className="navbar__search-input"
-          value={search}
-          onChange={(event) => setSearch?.(event.target.value)}
-        />
-      </label>
+      <div className="navbar__search-wrap">
+        <label className="navbar__search" aria-label="Search">
+          <FiSearch size={18} className="navbar__search-icon" />
+          <input
+            type="search"
+            placeholder={searchPlaceholder}
+            className="navbar__search-input"
+            value={search}
+            onChange={(event) => setSearch?.(event.target.value)}
+          />
+        </label>
+
+        {hasQuery ? (
+          <div className="navbar__search-panel" role="dialog" aria-label="Search results">
+            {formattedTransactions.length > 0 ? (
+              <div className="navbar__search-section">
+                <p className="navbar__search-heading">Transactions</p>
+                <div className="navbar__search-list">
+                  {formattedTransactions.map((transaction) => (
+                    <button
+                      key={transaction._id || transaction.id}
+                      type="button"
+                      className="navbar__search-item"
+                      onClick={() => handleResultSelect("/transactions")}
+                    >
+                      <span className="navbar__search-title">
+                        {transaction.description || transaction.reference || transaction.type}
+                      </span>
+                      <span className="navbar__search-meta">
+                        {formatCurrency(transaction.amount)}
+                        {transaction.displayDate ? ` • ${transaction.displayDate}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {actions.length > 0 ? (
+              <div className="navbar__search-section">
+                <p className="navbar__search-heading">Actions</p>
+                <div className="navbar__search-list">
+                  {actions.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className="navbar__search-item"
+                      onClick={() => handleResultSelect(action.path)}
+                    >
+                      <span className="navbar__search-title">{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!hasResults ? (
+              <div className="navbar__search-empty">No results found</div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <div className="navbar__profile">
         <div className="navbar__user-meta">

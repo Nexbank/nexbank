@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FiBriefcase,
+  FiCompass,
   FiGrid,
   FiMenu,
   FiRepeat,
@@ -16,6 +17,7 @@ import {
 const navItems = [
   { name: "Dashboard", path: "/dashboard", icon: FiGrid },
   { name: "Accounts", path: "/accounts", icon: FiBriefcase },
+  { name: "Products", path: "/products", icon: FiCompass },
   { name: "Transactions", path: "/transactions", icon: FiRepeat },
   { name: "Cards", path: "/cards", icon: FiCreditCard },
   { name: "Insights", path: "/insights", icon: FiBarChart2 },

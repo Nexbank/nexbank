@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
+import { showErrorAlert, showSuccessToast } from "../utils/alerts";
 
 function Login() {
   return (
@@ -48,7 +49,7 @@ function LoginForm() {
     e.preventDefault();
 
     if (!email || !password) {
-      alert("Please enter your email and password.");
+      await showErrorAlert("Missing details", "Please enter your email and password.");
       return;
     }
 
@@ -61,9 +62,10 @@ function LoginForm() {
       });
 
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem("userId", response.data.user._id);  // <--- ADD THIS LINE
+      localStorage.setItem("userId", response.data.user._id);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      
+      window.dispatchEvent(new Event("nexbank-auth-changed"));
+      showSuccessToast("Login successful.");
       navigate("/dashboard");
     } catch (error) {
       const message =
@@ -71,7 +73,7 @@ function LoginForm() {
         error.response?.data?.message ||
         "Login failed. Please try again.";
 
-      alert(message);
+      await showErrorAlert("Login failed", message);
     } finally {
       setIsSubmitting(false);
     }

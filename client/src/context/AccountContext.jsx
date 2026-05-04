@@ -4,15 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import API from "../services/api";
 
 const SELECTED_ACCOUNT_KEY_PREFIX = "nexbank-selected-account-id";
-const LOCAL_BANKING_STATE_KEY_PREFIX = "nexbank-banking-state";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const MINIMUM_ACTIVATION_FUNDING = 0;
 const ACTIVE_CARD_STATUS = "active";
 const FROZEN_CARD_STATUS = "frozen";
 const REPLACED_CARD_STATUS = "replaced";
@@ -27,39 +24,125 @@ const DEFAULT_LIMITS = Object.freeze({
 
 const DEFAULT_ACCOUNT_BLUEPRINT = Object.freeze({
   name: "Main Account",
-  accountType: "Main Account",
+  accountType: "current",
+  category: "transactional",
 });
 
-const ACCOUNT_TYPE_BLUEPRINTS = Object.freeze({
+const ACCOUNT_OPTION_BLUEPRINTS = Object.freeze({
   "Main Account": {
     name: "Main Account",
-    accountType: "Main Account",
-    category: "cheque",
+    accountType: "current",
+    category: "transactional",
   },
   TruSave: {
     name: "TruSave",
-    accountType: "TruSave",
+    accountType: "savings",
     category: "savings",
-  },
-  "Flexi Account": {
-    name: "Flexi Account",
-    accountType: "Flexi Account",
-    category: "cheque",
   },
   "Transact Account": {
     name: "Transact Account",
-    accountType: "Transact Account",
-    category: "transact",
+    accountType: "current",
+    category: "transactional",
   },
   "Student Account": {
     name: "Student Account",
-    accountType: "Student Account",
-    category: "student",
+    accountType: "student",
+    category: "transactional",
+  },
+  "Fixed Deposit": {
+    name: "Fixed Deposit",
+    accountType: "fixed_deposit",
+    category: "investment",
+  },
+  "Tax-Free Savings": {
+    name: "Tax-Free Savings",
+    accountType: "tax_free_savings",
+    category: "savings",
   },
   "Private Banking": {
     name: "Private Banking",
-    accountType: "Private Banking",
-    category: "private",
+    accountType: "private_banking",
+    category: "transactional",
+  },
+});
+
+const LEGACY_ACCOUNT_COMPATIBILITY = Object.freeze({
+  Current: DEFAULT_ACCOUNT_BLUEPRINT,
+  "Current Account": DEFAULT_ACCOUNT_BLUEPRINT,
+  "Main Account": ACCOUNT_OPTION_BLUEPRINTS["Main Account"],
+  "Flexi Account": {
+    name: "Flexi Account",
+    accountType: "current",
+    category: "transactional",
+  },
+  "Transact Account": ACCOUNT_OPTION_BLUEPRINTS["Transact Account"],
+  TruSave: ACCOUNT_OPTION_BLUEPRINTS.TruSave,
+  "Student Account": ACCOUNT_OPTION_BLUEPRINTS["Student Account"],
+  "Private Banking": ACCOUNT_OPTION_BLUEPRINTS["Private Banking"],
+  current: DEFAULT_ACCOUNT_BLUEPRINT,
+  savings: ACCOUNT_OPTION_BLUEPRINTS.TruSave,
+  student: ACCOUNT_OPTION_BLUEPRINTS["Student Account"],
+  fixed_deposit: ACCOUNT_OPTION_BLUEPRINTS["Fixed Deposit"],
+  tax_free_savings: ACCOUNT_OPTION_BLUEPRINTS["Tax-Free Savings"],
+  private_banking: ACCOUNT_OPTION_BLUEPRINTS["Private Banking"],
+});
+const CATEGORY_COMPATIBILITY = Object.freeze({
+  cheque: "transactional",
+  transact: "transactional",
+  student: "transactional",
+  private: "transactional",
+  savings: "savings",
+  investment: "investment",
+  transactional: "transactional",
+});
+const ACCOUNT_TYPE_RULES = Object.freeze({
+  current: {
+    monthlyFee: 50,
+    dailyTransferLimit: 10000,
+    allowsCards: true,
+    allowsBillPayments: true,
+    allowsWithdrawals: true,
+    allowsTransfers: true,
+  },
+  savings: {
+    monthlyFee: 0,
+    dailyTransferLimit: 5000,
+    allowsCards: false,
+    allowsBillPayments: false,
+    allowsWithdrawals: true,
+    allowsTransfers: true,
+  },
+  student: {
+    monthlyFee: 0,
+    dailyTransferLimit: 3000,
+    allowsCards: true,
+    allowsBillPayments: true,
+    allowsWithdrawals: true,
+    allowsTransfers: true,
+  },
+  fixed_deposit: {
+    monthlyFee: 0,
+    dailyTransferLimit: 0,
+    allowsCards: false,
+    allowsBillPayments: false,
+    allowsWithdrawals: false,
+    allowsTransfers: false,
+  },
+  tax_free_savings: {
+    monthlyFee: 0,
+    dailyTransferLimit: 36000,
+    allowsCards: false,
+    allowsBillPayments: false,
+    allowsWithdrawals: true,
+    allowsTransfers: true,
+  },
+  private_banking: {
+    monthlyFee: 150,
+    dailyTransferLimit: 100000,
+    allowsCards: true,
+    allowsBillPayments: true,
+    allowsWithdrawals: true,
+    allowsTransfers: true,
   },
 });
 
@@ -75,9 +158,6 @@ const safeJsonParse = (value, fallback = null) => {
 
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 
-const createId = (prefix) =>
-  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
 const sortByCreatedAtDesc = (items = []) =>
   [...items].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
 
@@ -88,11 +168,14 @@ const humanizeValue = (value = "") =>
     .trim();
 
 const getAccountBlueprint = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) =>
-  ACCOUNT_TYPE_BLUEPRINTS[accountType] || {
-    name: accountType || DEFAULT_ACCOUNT_BLUEPRINT.name,
+  ACCOUNT_OPTION_BLUEPRINTS[accountType] ||
+  LEGACY_ACCOUNT_COMPATIBILITY[accountType] || {
+    name: humanizeValue(accountType || DEFAULT_ACCOUNT_BLUEPRINT.name),
     accountType: accountType || DEFAULT_ACCOUNT_BLUEPRINT.accountType,
-    category: "cheque",
+    category: DEFAULT_ACCOUNT_BLUEPRINT.category,
   };
+const getAccountRules = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) =>
+  ACCOUNT_TYPE_RULES[accountType] || ACCOUNT_TYPE_RULES[DEFAULT_ACCOUNT_BLUEPRINT.accountType];
 
 const normalizeCardType = (value = "") => {
   const normalized = String(value).trim().toLowerCase();
@@ -115,8 +198,7 @@ const getUserStorageId = (user = getStoredUser()) => user?._id || user?.email ||
 const getSelectedAccountStorageKey = (userId = getUserStorageId()) =>
   `${SELECTED_ACCOUNT_KEY_PREFIX}:${userId}`;
 
-const getLocalBankingStateStorageKey = (userId = getUserStorageId()) =>
-  `${LOCAL_BANKING_STATE_KEY_PREFIX}:${userId}`;
+const hasAuthToken = () => Boolean(window.localStorage.getItem("token"));
 
 const readSelectedAccountId = (userId = getUserStorageId()) =>
   window.localStorage.getItem(getSelectedAccountStorageKey(userId)) || null;
@@ -132,43 +214,34 @@ const writeSelectedAccountId = (userId = getUserStorageId(), accountId = null) =
   window.localStorage.removeItem(key);
 };
 
-const buildAccountNumber = (userId, index) => {
-  const digits = String(userId).replace(/\D/g, "").padEnd(8, String(index + 1)).slice(0, 8);
-  return `10${index + 1}${digits}`;
-};
-
-const buildLast4Digits = (accountNumber, offset = 0) => {
-  const baseValue = Number(String(accountNumber).slice(-4) || 0);
-  return String(baseValue + offset).padStart(4, "0").slice(-4);
-};
-
-const buildMaskedPan = (last4Digits) => `5214 **** **** ${String(last4Digits).slice(-4).padStart(4, "0")}`;
-
-const buildSimulatedCvv = (cardId) =>
-  String(
-    100 +
-      [...String(cardId || "card")]
-        .reduce((sum, character) => sum + character.charCodeAt(0), 0) % 900
-  );
-
 const toIsoDate = (value) => new Date(value).toISOString();
-
-const resolveAccountActivation = () => ({
-  isActive: true,
-  status: "active",
-});
 
 const normalizeAccount = (account, userId, index) => {
   const accountId = account?._id || account?.id || `account-${userId}-${index + 1}`;
-  const blueprint = getAccountBlueprint(account?.accountType);
-  const accountType = account?.accountType || blueprint.accountType;
-  const name = account?.name || blueprint.name;
+  const legacyBlueprint =
+    getAccountBlueprint(account?.accountType) ||
+    getAccountBlueprint(account?.name) ||
+    DEFAULT_ACCOUNT_BLUEPRINT;
+  const accountType = account?.accountType || legacyBlueprint.accountType;
+  const normalizedBlueprint = getAccountBlueprint(accountType);
+  const category =
+    CATEGORY_COMPATIBILITY[account?.category] ||
+    account?.category ||
+    normalizedBlueprint.category ||
+    legacyBlueprint.category;
+  const name = account?.name || normalizedBlueprint.name || legacyBlueprint.name;
+  const rules = {
+    ...getAccountRules(accountType),
+    ...(account?.rules || {}),
+  };
+  // 🔹 Future-ready
+  // Merge backend rules with normalized defaults so legacy records and new account products stay renderable in one shape.
   const availableBalance = roundCurrency(
     account?.availableBalance ?? account?.balance ?? account?.ledgerBalance ?? 0
   );
   const ledgerBalance = roundCurrency(account?.ledgerBalance ?? availableBalance);
-  const minimumFundingAmount = 0;
-  const { isActive, status } = resolveAccountActivation();
+  const isActive = Boolean(account?.isActive);
+  const status = String(account?.status || (isActive ? "active" : "inactive")).toLowerCase();
 
   return {
     _id: accountId,
@@ -176,16 +249,18 @@ const normalizeAccount = (account, userId, index) => {
     userId: account?.userId || userId,
     name,
     accountType,
-    category: account?.category || blueprint.category,
-    accountNumber: String(account?.accountNumber || buildAccountNumber(userId, index))
+    category,
+    rules,
+    accountNumber: String(account?.accountNumber || "")
       .replace(/\D/g, "")
       .slice(0, 11)
       .padStart(11, "0"),
     availableBalance,
     ledgerBalance,
-    minimumFundingAmount,
     isActive,
     status,
+    closedAt: account?.closedAt || null,
+    closedReason: account?.closedReason || null,
     limits: {
       ...DEFAULT_LIMITS,
       ...(account?.limits || {}),
@@ -237,118 +312,16 @@ const normalizeCard = (card, userId, index) => {
     status,
     isActive: card?.isActive ?? status === ACTIVE_CARD_STATUS,
     isLocked:
-  card?.isLocked ??
-  (status === FROZEN_CARD_STATUS ||
-   status === REPLACED_CARD_STATUS),
+      card?.isLocked ??
+      (status === FROZEN_CARD_STATUS || status === REPLACED_CARD_STATUS),
     contactlessEnabled: card?.contactlessEnabled ?? true,
     onlinePaymentsEnabled: card?.onlinePaymentsEnabled ?? true,
     atmWithdrawalsEnabled: card?.atmWithdrawalsEnabled ?? normalizedType === "physical",
     replacedByCardId: card?.replacedByCardId || null,
     replacedAt: card?.replacedAt || null,
-    cardNumber: String(card?.cardNumber || buildMaskedPan(card?.last4Digits || "0000").replace(/\D/g, "").slice(0, 16)).padStart(16, "0").slice(-16),
+    cardNumber: String(card?.cardNumber || card?.maskedPan || "").trim(),
     detailsSource: "system",
     createdAt,
-  };
-};
-
-const createSystemCard = ({ account, cardType, createdAt = new Date().toISOString(), offset = 0 }) =>
-  normalizeCard(
-    {
-      _id: `card-${account._id}-${normalizeCardType(cardType)}`,
-      userId: account.userId,
-      accountId: account._id,
-      cardType,
-      cardName:
-        normalizeCardType(cardType) === "physical" ? "NexBank Physical Card" : "NexBank Virtual Card",
-      cardNumber: `5214${String(account.accountNumber || "").padStart(11, "0").slice(-11)}${String(offset).padStart(1, "0")}`,
-      last4Digits: buildLast4Digits(account.accountNumber, offset),
-      createdAt,
-      expiryDate: toIsoDate(
-        new Date(new Date(createdAt).setFullYear(new Date(createdAt).getFullYear() + 4))
-      ),
-      status: ACTIVE_CARD_STATUS,
-      isActive: Boolean(account.isActive),
-      isLocked: false,
-      contactlessEnabled: true,
-      onlinePaymentsEnabled: true,
-      atmWithdrawalsEnabled: normalizeCardType(cardType) === "physical",
-    },
-    account.userId,
-    0
-  );
-
-const syncAccountActivation = (accounts = []) =>
-  accounts.map((account) => ({
-    ...account,
-    ...resolveAccountActivation(),
-  }));
-
-const syncCardsToAccounts = (cards = [], accounts = []) =>
-  cards.map((card) => {
-    const linkedAccount = accounts.find((account) => account._id === card.accountId);
-
-    if (!linkedAccount) {
-      return card;
-    }
-
-    const isLifecycleBlocked =
-      card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS;
-
-    return {
-      ...card,
-      isActive: !isLifecycleBlocked && card.status === ACTIVE_CARD_STATUS,
-      isLocked: card.status === FROZEN_CARD_STATUS || card.status === REPLACED_CARD_STATUS,
-    };
-  });
-
-const applyTransactionToAccount = (account, transaction) => {
-  if (account._id !== transaction.accountId) {
-    return account;
-  }
-
-  const signedAmount =
-    transaction.direction === "credit" ? Number(transaction.amount || 0) : -Number(transaction.amount || 0);
-
-  return {
-    ...account,
-    availableBalance: roundCurrency(account.availableBalance + signedAmount),
-    ledgerBalance: roundCurrency(account.ledgerBalance + signedAmount),
-  };
-};
-
-const buildProvisionedSummary = (userId) => {
-  const accounts = [
-    normalizeAccount(
-      {
-        _id: `account-${userId}-1`,
-        userId,
-        name: DEFAULT_ACCOUNT_BLUEPRINT.name,
-        accountType: DEFAULT_ACCOUNT_BLUEPRINT.accountType,
-        accountNumber: buildAccountNumber(userId, 0),
-        availableBalance: 0,
-        ledgerBalance: 0,
-        createdAt: toIsoDate(Date.now() - 12 * DAY_IN_MS),
-        minimumFundingAmount: MINIMUM_ACTIVATION_FUNDING,
-        isActive: true,
-      },
-      userId,
-      0
-    ),
-  ];
-
-  const cards = [
-    createSystemCard({
-      account: accounts[0],
-      cardType: "Physical Card",
-      createdAt: accounts[0].createdAt,
-      offset: 0,
-    }),
-  ];
-
-  return {
-    accounts,
-    cards,
-    transactions: [],
   };
 };
 
@@ -359,74 +332,46 @@ const normalizeBankingSummary = (summary, userId) => {
     Array.isArray(summary?.transactions);
 
   if (!hasSummaryContent) {
-    return buildProvisionedSummary(userId);
+    return {
+      accounts: [],
+      cards: [],
+      transactions: [],
+    };
   }
 
   const normalizedAccountsSource =
     Array.isArray(summary?.accounts) && summary.accounts.length > 0
       ? summary.accounts
-      : buildProvisionedSummary(userId).accounts;
+      : [];
 
-  const accounts = syncAccountActivation(
-    normalizedAccountsSource.map((account, index) =>
-    normalizeAccount(account, userId, index)
-    )
-  );
+  const accounts = normalizedAccountsSource
+    .filter(Boolean)
+    .map((account, index) => normalizeAccount(account, userId, index));
 
   const transactions = sortByCreatedAtDesc(
     (Array.isArray(summary?.transactions) ? summary.transactions : [])
+      .filter(Boolean)
       .map((transaction, index) => normalizeTransaction(transaction, index))
+      // 🔹 Safety / Validation
+      // Ignore orphaned transaction rows so the UI only renders activity tied to returned accounts.
       .filter((transaction) => accounts.some((account) => account._id === transaction.accountId))
   );
 
   const cards = sortByCreatedAtDesc(
     (Array.isArray(summary?.cards) ? summary.cards : [])
+      .filter(Boolean)
       .map((card, index) => normalizeCard(card, userId, index))
+      // 🔹 Banking Logic
+      // Replaced cards stay in MongoDB for history, but the live cards UI should only surface current usable records.
       .filter((card) => card.status !== REPLACED_CARD_STATUS)
       .filter((card) => accounts.some((account) => account._id === card.accountId))
   );
 
-  const constrainedCards = accounts.flatMap((account, index) => {
-    const accountCards = cards.filter((card) => card.accountId === account._id);
-    const hasPhysicalCard = accountCards.some(
-      (card) => normalizeCardType(card.cardType || card.type) === "physical"
-    );
-
-    if (hasPhysicalCard) {
-      return accountCards;
-    }
-
-    return [
-      ...accountCards,
-      createSystemCard({
-        account,
-        cardType: "Physical Card",
-        createdAt: account.createdAt,
-        offset: index,
-      }),
-    ];
-  });
-
   return {
     accounts,
-    cards: sortByCreatedAtDesc(syncCardsToAccounts(constrainedCards, accounts)),
+    cards,
     transactions,
   };
-};
-
-const loadLocalBankingSummary = (userId, seedSummary = null) => {
-  const storedSummary = safeJsonParse(
-    window.localStorage.getItem(getLocalBankingStateStorageKey(userId)),
-    null
-  );
-  const nextSummary = normalizeBankingSummary(storedSummary || seedSummary, userId);
-  window.localStorage.setItem(getLocalBankingStateStorageKey(userId), JSON.stringify(nextSummary));
-  return nextSummary;
-};
-
-const shouldUseLocalFallback = (requestError) => {
-  const status = requestError.response?.status;
-  return !requestError.response || status === 404 || status === 405 || status === 501;
 };
 
 const resolveTransferLimitField = (route) => {
@@ -442,6 +387,8 @@ const resolveTransferLimitField = (route) => {
 };
 
 const validateMoneyMovement = ({ account, amount, type, route }) => {
+  // 🔹 Safety / Validation
+  // Mirror the main account-rule checks client-side for fast feedback, while keeping the backend as final authority.
   if (!account) {
     throw new Error("Select an account before continuing.");
   }
@@ -467,6 +414,24 @@ const validateMoneyMovement = ({ account, amount, type, route }) => {
         : type === "transfer"
           ? resolveTransferLimitField(route)
           : null;
+
+  if (type === "bill" && account.rules && !account.rules.allowsBillPayments) {
+    throw new Error("Bill payments are not available for this account type.");
+  }
+
+  if (type === "withdrawal" && account.rules && !account.rules.allowsWithdrawals) {
+    throw new Error("Withdrawals are not available for this account type.");
+  }
+
+  if (type === "transfer" && account.rules) {
+    if (!account.rules.allowsTransfers) {
+      throw new Error("Transfers are not available for this account type.");
+    }
+
+    if (normalizedAmount > Number(account.rules.dailyTransferLimit || 0)) {
+      throw new Error("This exceeds the daily transfer limit for the selected account.");
+    }
+  }
 
   if (limitField && normalizedAmount > Number(account.limits?.[limitField] || 0)) {
     throw new Error("This exceeds the allowed limit for the selected account.");
@@ -546,31 +511,26 @@ const resolveInsightCategoryLabel = (transaction, categoryId) => {
 };
 
 export function AccountProvider({ children }) {
-  const [accounts, setAccounts] = useState([]);
+  const [accountRecords, setAccountRecords] = useState([]);
   const [cards, setCards] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [cardDetailsById, setCardDetailsById] = useState({});
+  const [isAuthenticated, setIsAuthenticated] = useState(() => hasAuthToken());
   const [selectedAccountId, setSelectedAccountId] = useState(() =>
     readSelectedAccountId(getUserStorageId())
   );
-  const [isLoading, setIsLoading] = useState(() => Boolean(window.localStorage.getItem("token")));
+  const [isLoading, setIsLoading] = useState(() => hasAuthToken());
   const [error, setError] = useState("");
-  const dataModeRef = useRef("api");
-  const bankingStateRef = useRef({
-    accounts: [],
-    cards: [],
-    transactions: [],
-  });
 
   const applySummary = useCallback((summary, userId = getUserStorageId()) => {
     const nextSummary = normalizeBankingSummary(summary, userId);
-    bankingStateRef.current = {
-      accounts: nextSummary.accounts,
-      cards: nextSummary.cards,
-      transactions: nextSummary.transactions,
-    };
+    const nextActiveAccounts = nextSummary.accounts.filter(
+      (account) => account.status !== "closed" && account.isActive !== false
+    );
+    // 🔹 Banking Logic
+    // Preserve historical accounts in state, then derive active selectors separately so closed accounts still appear in reporting views.
 
-    setAccounts(nextSummary.accounts);
+    setAccountRecords(nextSummary.accounts);
     setCards(nextSummary.cards);
     setTransactions(nextSummary.transactions);
     setCardDetailsById((currentDetails) =>
@@ -585,11 +545,11 @@ export function AccountProvider({ children }) {
     setSelectedAccountId((currentSelectedId) => {
       const persistedSelectedId = readSelectedAccountId(userId);
       const preferredSelectedId = currentSelectedId || persistedSelectedId;
-      const hasPreferredAccount = nextSummary.accounts.some(
+      const hasPreferredAccount = nextActiveAccounts.some(
         (account) => account._id === preferredSelectedId
       );
       const nextSelectedId =
-        hasPreferredAccount ? preferredSelectedId : nextSummary.accounts[0]?._id || null;
+        hasPreferredAccount ? preferredSelectedId : nextActiveAccounts[0]?._id || null;
 
       writeSelectedAccountId(userId, nextSelectedId);
       return nextSelectedId;
@@ -598,50 +558,31 @@ export function AccountProvider({ children }) {
     return nextSummary;
   }, []);
 
-  const commitLocalSummary = useCallback(
-    (summary, userId = getUserStorageId()) => {
-      const nextSummary = normalizeBankingSummary(summary, userId);
-      window.localStorage.setItem(
-        getLocalBankingStateStorageKey(userId),
-        JSON.stringify(nextSummary)
-      );
-      dataModeRef.current = "local";
-      applySummary(nextSummary, userId);
-      return nextSummary;
-    },
-    [applySummary]
-  );
-
   const resetState = useCallback((message = "") => {
     writeSelectedAccountId(getUserStorageId(), null);
-    bankingStateRef.current = {
-      accounts: [],
-      cards: [],
-      transactions: [],
-    };
-    setAccounts([]);
+    setAccountRecords([]);
     setCards([]);
     setTransactions([]);
     setCardDetailsById({});
     setSelectedAccountId(null);
+    setIsAuthenticated(false);
+    setIsLoading(false);
     setError(message);
   }, []);
 
   const refreshSummary = useCallback(async () => {
-    const token = window.localStorage.getItem("token");
-    const userId = getUserStorageId();
-
-    if (!token) {
-      resetState("");
+    if (!isAuthenticated) {
       setIsLoading(false);
+      setError("Unauthenticated");
       return;
     }
+
+    const userId = getUserStorageId();
 
     setIsLoading(true);
 
     try {
       const response = await API.get("/banking/summary");
-      dataModeRef.current = "api";
       applySummary(response.data, userId);
     } catch (requestError) {
       if (requestError.response?.status === 401) {
@@ -652,23 +593,16 @@ export function AccountProvider({ children }) {
         );
         throw requestError;
       }
-
-      const currentBankingState = bankingStateRef.current;
-      const fallbackSummary = loadLocalBankingSummary(
-        userId,
-        currentBankingState.accounts.length > 0 ||
-          currentBankingState.cards.length > 0 ||
-          currentBankingState.transactions.length > 0
-          ? currentBankingState
-          : null
+      setError(
+        requestError.response?.data?.error ||
+          requestError.message ||
+          "Failed to load your banking data."
       );
-
-      dataModeRef.current = "local";
-      applySummary(fallbackSummary, userId);
+      throw requestError;
     } finally {
       setIsLoading(false);
     }
-  }, [applySummary, resetState]);
+  }, [applySummary, isAuthenticated, resetState]);
 
   useEffect(() => {
     refreshSummary().catch(() => {});
@@ -676,16 +610,35 @@ export function AccountProvider({ children }) {
 
   useEffect(() => {
     const handleAuthChanged = () => {
-      setSelectedAccountId(readSelectedAccountId(getUserStorageId()));
+      const nextIsAuthenticated = hasAuthToken();
+      setIsAuthenticated(nextIsAuthenticated);
+
+      if (!nextIsAuthenticated) {
+        resetState("");
+        return;
+      }
+
+      const userId = getUserStorageId();
+      setSelectedAccountId(readSelectedAccountId(userId));
+      setError("");
       refreshSummary().catch(() => {});
     };
 
     window.addEventListener("nexbank-auth-changed", handleAuthChanged);
     return () => window.removeEventListener("nexbank-auth-changed", handleAuthChanged);
-  }, [refreshSummary]);
+  }, [applySummary, refreshSummary, resetState]);
 
+  const allAccounts = useMemo(() => accountRecords, [accountRecords]);
+  const accounts = useMemo(
+    () => allAccounts.filter((account) => account.status !== "closed" && account.isActive !== false),
+    [allAccounts]
+  );
+  const closedAccounts = useMemo(
+    () => allAccounts.filter((account) => account.status === "closed" || account.isActive === false),
+    [allAccounts]
+  );
   const selectedAccount = useMemo(
-    () => accounts.find((account) => account._id === selectedAccountId) || null,
+    () => accounts.find((account) => account._id === selectedAccountId) || accounts[0] || null,
     [accounts, selectedAccountId]
   );
 
@@ -704,8 +657,6 @@ export function AccountProvider({ children }) {
     () => (selectedAccount ? allCards.filter((card) => card.accountId === selectedAccount._id) : []),
     [allCards, selectedAccount]
   );
-
-  const hasActiveAccount = Boolean(selectedAccount);
 
   const dashboardSummary = useMemo(() => {
     const totalAvailableBalance = Number(selectedAccount?.availableBalance || 0);
@@ -762,140 +713,73 @@ export function AccountProvider({ children }) {
     };
   }, [selectedTransactions]);
 
-  const executeWithBankingFallback = useCallback(
-    async ({ apiRequest, localUpdate, extractResult }) => {
-      const userId = getUserStorageId();
-
-      if (dataModeRef.current !== "local" && apiRequest) {
-        try {
-          const response = await apiRequest();
-          dataModeRef.current = "api";
-          applySummary(response.data, userId);
-          return extractResult(response.data);
-        } catch (requestError) {
-          if (!shouldUseLocalFallback(requestError)) {
-            throw requestError;
-          }
-        }
-      }
-
-      const currentBankingState = bankingStateRef.current;
-      const currentSummary =
-        currentBankingState.accounts.length > 0 ||
-        currentBankingState.cards.length > 0 ||
-        currentBankingState.transactions.length > 0
-          ? currentBankingState
-          : null;
-      const baseSummary = loadLocalBankingSummary(userId, currentSummary);
-      const { nextSummary, result } = localUpdate(baseSummary);
-
-      commitLocalSummary(nextSummary, userId);
-      return result;
-    },
-    [applySummary, commitLocalSummary]
-  );
-
   const createAccount = useCallback(
     async ({ accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType }) => {
-      const blueprint = getAccountBlueprint(accountType);
+      try {
+        setError("");
+        const blueprint = getAccountBlueprint(accountType);
+        const response = await API.post("/banking/accounts", {
+          accountType: blueprint.accountType,
+        });
+        const account = response.data.account;
+        applySummary(response.data, getUserStorageId());
 
-      const account = await executeWithBankingFallback({
-        apiRequest: () =>
-          API.post("/banking/accounts", {
-            accountType: blueprint.accountType,
-          }),
-        localUpdate: (summary) => {
-          const userId = getUserStorageId();
-          const nextAccount = normalizeAccount(
-            {
-              _id: createId("account"),
-              userId,
-              name: blueprint.name,
-              accountType: blueprint.accountType,
-              category: blueprint.category,
-              accountNumber: buildAccountNumber(userId, summary.accounts.length),
-              availableBalance: 0,
-              ledgerBalance: 0,
-              createdAt: new Date().toISOString(),
-            },
-            userId,
-            summary.accounts.length
-          );
-          const nextAccounts = [...summary.accounts, nextAccount];
-          const physicalCard = createSystemCard({
-            account: nextAccount,
-            cardType: "Physical Card",
-            createdAt: nextAccount.createdAt,
-            offset: summary.accounts.length,
-          });
+        const userId = getUserStorageId();
+        const nextSelectedId = account?._id || account?.id || null;
+        setSelectedAccountId(nextSelectedId);
+        writeSelectedAccountId(userId, nextSelectedId);
 
-          return {
-            nextSummary: {
-              ...summary,
-              accounts: nextAccounts,
-              cards: sortByCreatedAtDesc(
-                syncCardsToAccounts([physicalCard, ...summary.cards], nextAccounts)
-              ),
-            },
-            result: nextAccount,
-          };
-        },
-        extractResult: (data) => data.account,
-      });
-
-      const userId = getUserStorageId();
-      const nextSelectedId = account?._id || account?.id || null;
-      setSelectedAccountId(nextSelectedId);
-      writeSelectedAccountId(userId, nextSelectedId);
-
-      return account;
+        return account;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to create account."
+        );
+        throw requestError;
+      }
     },
-    [executeWithBankingFallback]
+    [applySummary]
+  );
+
+  const closeAccount = useCallback(
+    async (accountId) => {
+      try {
+        setError("");
+        const response = await API.patch(`/banking/accounts/${accountId}/close`);
+        applySummary(response.data, getUserStorageId());
+        return response.data.account;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to close account."
+        );
+        throw requestError;
+      }
+    },
+    [applySummary]
   );
 
   const settleTransaction = useCallback(
-    async (transactionId, status = "completed") =>
-      executeWithBankingFallback({
-        apiRequest: () =>
-          API.patch(`/banking/transactions/${transactionId}/status`, {
-            status,
-          }),
-        localUpdate: (summary) => {
-          const nextTransactions = summary.transactions.map((transaction) =>
-            transaction._id === transactionId || transaction.id === transactionId
-              ? { ...transaction, status }
-              : transaction
-          );
-          const nextSummary = {
-            ...summary,
-            transactions: sortByCreatedAtDesc(nextTransactions),
-          };
-          const result =
-            nextTransactions.find(
-              (transaction) => transaction._id === transactionId || transaction.id === transactionId
-            ) || null;
-
-          return {
-            nextSummary,
-            result,
-          };
-        },
-        extractResult: (data) => data.transaction,
-      }),
-    [executeWithBankingFallback]
-  );
-
-  const scheduleSettlement = useCallback(
-    (transactionId, delayInMs) => {
-      if (!delayInMs) {
-        return;
+    async (transactionId, status = "completed") => {
+      try {
+        setError("");
+        const response = await API.patch(`/banking/transactions/${transactionId}/status`, {
+          status,
+        });
+        applySummary(response.data, getUserStorageId());
+        return response.data.transaction;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to update transaction."
+        );
+        throw requestError;
       }
-
-      window.setTimeout(() => {
-        settleTransaction(transactionId, "completed").catch(() => {});
-      }, delayInMs);
     },
-    [settleTransaction]
+    [applySummary]
   );
 
   const submitMoneyMovement = useCallback(
@@ -903,15 +787,19 @@ export function AccountProvider({ children }) {
       type,
       direction,
       status,
+      fee,
       reference,
       description,
       metadata,
+      billerName,
+      dynamicFields,
       amount,
       accountId = selectedAccount?._id,
       cardId = null,
       route,
-      completionDelayMs,
     }) => {
+      // 🔹 Ledger Update
+      // Every money action passes through one backend command path so balances, fees, and status transitions stay server-owned.
       const currentAccount = accounts.find((account) => account._id === accountId) || null;
       const normalizedAmount = validateMoneyMovement({
         account: currentAccount,
@@ -924,82 +812,51 @@ export function AccountProvider({ children }) {
         cards,
         cardId,
       });
-
-      const transaction = await executeWithBankingFallback({
-        apiRequest: () =>
-          API.post("/banking/transactions", {
-            accountId,
-            cardId,
-            type,
-            direction,
-            amount: normalizedAmount,
-            status,
-            reference,
-            description,
-            metadata: {
-              ...(metadata || {}),
-              ...(cardId ? { cardId } : {}),
-            },
-          }),
-        localUpdate: (summary) => {
-          const targetAccount = summary.accounts.find((account) => account._id === accountId) || null;
-          const validatedAmount = validateMoneyMovement({
-            account: targetAccount,
-            amount: normalizedAmount,
-            type,
-            route,
-          });
-          validateCardAuthorization({
-            account: targetAccount,
-            cards: summary.cards,
-            cardId,
-          });
-          const transactionId = createId(`transaction-${type}`);
-          const nextTransaction = normalizeTransaction(
-            {
-              _id: transactionId,
-              accountId,
-              cardId,
-              amount: validatedAmount,
-              direction,
-              type,
-              status,
-              reference,
-              description,
-              metadata: {
-                ...(metadata || {}),
-                ...(cardId ? { cardId } : {}),
-              },
-              createdAt: new Date().toISOString(),
-            },
-            summary.transactions.length
-          );
-          const nextAccounts = syncAccountActivation(
-            summary.accounts.map((account) => applyTransactionToAccount(account, nextTransaction))
-          );
-          const nextTransactions = sortByCreatedAtDesc([nextTransaction, ...summary.transactions]);
-
-          return {
-            nextSummary: {
-              ...summary,
-              accounts: nextAccounts,
-              cards: syncCardsToAccounts(summary.cards, nextAccounts),
-              transactions: nextTransactions,
-            },
-            result: nextTransaction,
-          };
-        },
-        extractResult: (data) => data.transaction,
-      });
-
-      scheduleSettlement(transaction._id || transaction.id, completionDelayMs);
-      return transaction;
+      try {
+        setError("");
+        const payload = {
+          accountId,
+          cardId,
+          type,
+          direction,
+          amount: normalizedAmount,
+          fee,
+          reference,
+          description,
+          metadata: {
+            ...(metadata || {}),
+            ...(cardId ? { cardId } : {}),
+          },
+        };
+        // 🔹 Future-ready
+        // Keep bill-specific payload fields outside generic metadata so routes can evolve without UI-only branching.
+        if (billerName) {
+          payload.billerName = billerName;
+        }
+        if (dynamicFields) {
+          payload.dynamicFields = dynamicFields;
+        }
+        if (status) {
+          payload.status = status;
+        }
+        const response = await API.post("/banking/transactions", payload);
+        applySummary(response.data, getUserStorageId());
+        return response.data.transaction;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to submit transaction."
+        );
+        throw requestError;
+      }
     },
-    [accounts, cards, executeWithBankingFallback, scheduleSettlement, selectedAccount]
+    [accounts, cards, applySummary, selectedAccount]
   );
 
   const depositFunds = useCallback(
     async ({
+      accountId,
       amount,
       bankName,
       source,
@@ -1009,9 +866,9 @@ export function AccountProvider({ children }) {
       transferSpeed,
     }) =>
       submitMoneyMovement({
+        accountId,
         type: "deposit",
         direction: "credit",
-        status: "pending",
         amount,
         reference,
         description: `Deposit from ${bankName}`,
@@ -1022,13 +879,13 @@ export function AccountProvider({ children }) {
           accountNumber,
           transferSpeed,
         },
-        completionDelayMs: transferSpeed === "priority" ? 3000 : 5000,
       }),
     [submitMoneyMovement]
   );
 
   const withdrawFunds = useCallback(
     async ({
+      accountId,
       amount,
       bankName,
       payoutChannel,
@@ -1038,9 +895,9 @@ export function AccountProvider({ children }) {
       note,
     }) =>
       submitMoneyMovement({
+        accountId,
         type: "withdrawal",
         direction: "debit",
-        status: "pending",
         amount,
         reference: note,
         description: `Withdrawal to ${bankName}`,
@@ -1051,13 +908,13 @@ export function AccountProvider({ children }) {
           accountNumber,
           accountType,
         },
-        completionDelayMs: payoutChannel === "atm-code" ? 2500 : 4000,
       }),
     [submitMoneyMovement]
   );
 
   const transferFunds = useCallback(
     async ({
+      accountId,
       amount,
       route,
       bankName,
@@ -1070,9 +927,9 @@ export function AccountProvider({ children }) {
       code,
     }) =>
       submitMoneyMovement({
+        accountId,
         type: "transfer",
         direction: "debit",
-        status: route === "external" ? "pending" : "completed",
         amount,
         route,
         reference,
@@ -1092,287 +949,151 @@ export function AccountProvider({ children }) {
           note,
           code,
         },
-        completionDelayMs: route === "external" ? 4500 : 0,
       }),
     [submitMoneyMovement]
   );
 
   const payBill = useCallback(
-    async ({ amount, category, provider, accountNumber, billName, dueDate, reference }) =>
+    async ({
+      accountId,
+      amount,
+      category,
+      provider,
+      accountNumber,
+      billName,
+      dueDate,
+      reference,
+      dynamicFields = {},
+    }) =>
       submitMoneyMovement({
+        accountId,
         type: "bill",
         direction: "debit",
-        status: "pending",
         amount,
+        // 🔹 Banking Logic
+        // Amount and fee stay separate so ledger history can show the service charge without changing the bill value itself.
+        fee: 2,
         reference,
         description: `Bill payment to ${provider}`,
+        billerName: provider,
+        dynamicFields: {
+          accountNumber,
+          billName,
+          dueDate,
+          ...dynamicFields,
+        },
         metadata: {
           category,
           provider,
           accountNumber,
           billName,
           dueDate,
+          ...dynamicFields,
         },
-        completionDelayMs: 4000,
       }),
     [submitMoneyMovement]
   );
 
   const createCard = useCallback(
     async ({ cardType, accountId = selectedAccount?._id }) => {
-      const normalizedType = normalizeCardType(cardType);
-      const currentAccount = accounts.find((account) => account._id === accountId) || null;
+      try {
+        setError("");
+        const normalizedType = normalizeCardType(cardType);
+        const currentAccount = accounts.find((account) => account._id === accountId) || null;
 
-      if (!currentAccount) {
-        throw new Error("Select an account before creating a card.");
+        if (!currentAccount) {
+          throw new Error("Select an account before creating a card.");
+        }
+
+        if (!normalizedType) {
+          throw new Error("Choose a valid card type.");
+        }
+
+        if (normalizedType !== "virtual") {
+          throw new Error("Physical cards are issued automatically and cannot be created here.");
+        }
+
+        const existingCards = cards.filter((card) => card.accountId === accountId);
+        const hasCardOfType = existingCards.some(
+          (card) => normalizeCardType(card.cardType || card.type) === normalizedType
+        );
+
+        if (hasCardOfType) {
+          throw new Error("This account already has that card type.");
+        }
+        const response = await API.post("/banking/cards", {
+          accountId,
+          cardType: "Virtual Card",
+        });
+        applySummary(response.data, getUserStorageId());
+        return response.data.card;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to create card."
+        );
+        throw requestError;
       }
-
-      if (!normalizedType) {
-        throw new Error("Choose a valid card type.");
-      }
-
-      if (normalizedType !== "virtual") {
-        throw new Error("Physical cards are issued automatically and cannot be created here.");
-      }
-
-      const existingCards = cards.filter((card) => card.accountId === accountId);
-      const hasCardOfType = existingCards.some(
-        (card) => normalizeCardType(card.cardType || card.type) === normalizedType
-      );
-
-      if (hasCardOfType) {
-        throw new Error("This account already has that card type.");
-      }
-
-      return executeWithBankingFallback({
-        apiRequest: () =>
-          API.post("/banking/cards", {
-            accountId,
-            cardType: "Virtual Card",
-          }),
-        localUpdate: (summary) => {
-          const targetAccount = summary.accounts.find((account) => account._id === accountId) || null;
-          const accountCards = summary.cards.filter((card) => card.accountId === accountId);
-          const cardAlreadyExists = accountCards.some(
-            (card) => normalizeCardType(card.cardType || card.type) === normalizedType
-          );
-
-          if (!targetAccount) {
-            throw new Error("Select an account before creating a card.");
-          }
-
-          if (cardAlreadyExists) {
-            throw new Error("This account already has that card type.");
-          }
-
-          const nextCard = createSystemCard({
-            account: targetAccount,
-            cardType: "Virtual Card",
-            createdAt: new Date().toISOString(),
-            offset: 17,
-          });
-
-          return {
-            nextSummary: {
-              ...summary,
-              cards: sortByCreatedAtDesc([nextCard, ...summary.cards]).filter(
-                (card) => card.status !== REPLACED_CARD_STATUS
-              ),
-            },
-            result: nextCard,
-          };
-        },
-        extractResult: (data) => data.card,
-      });
     },
-    [accounts, cards, executeWithBankingFallback, selectedAccount]
+    [accounts, cards, applySummary, selectedAccount]
   );
 
   const updateCard = useCallback(
-    async (cardId, payload) =>
-      executeWithBankingFallback({
-        apiRequest: () => API.patch(`/banking/cards/${cardId}`, payload),
-        localUpdate: (summary) => {
-          const targetCard =
-            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-          if (!targetCard) {
-            throw new Error("Card not found.");
-          }
-
-          if (targetCard.status === REPLACED_CARD_STATUS) {
-            throw new Error("A replaced card cannot be changed.");
-          }
-
-          const nextCards = summary.cards.map((card) =>
-            card._id === cardId || card.id === cardId ? { ...card, ...payload } : card
-          );
-          const result =
-            nextCards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-          return {
-            nextSummary: {
-              ...summary,
-              cards: sortByCreatedAtDesc(syncCardsToAccounts(nextCards, summary.accounts)),
-            },
-            result,
-          };
-        },
-        extractResult: (data) => data.card,
-      }),
-    [executeWithBankingFallback]
+    async (cardId, payload) => {
+      try {
+        setError("");
+        const response = await API.patch(`/banking/cards/${cardId}`, payload);
+        applySummary(response.data, getUserStorageId());
+        return response.data.card;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to update card."
+        );
+        throw requestError;
+      }
+    },
+    [applySummary]
   );
 
   const freezeCard = useCallback(
-    async (cardId) =>
-      executeWithBankingFallback({
-        apiRequest: () => API.post(`/banking/cards/${cardId}/freeze`),
-        localUpdate: (summary) => {
-          const targetCard =
-            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-          if (!targetCard) {
-            throw new Error("Card not found.");
-          }
-
-          if (targetCard.status === REPLACED_CARD_STATUS) {
-            throw new Error("A replaced card cannot be frozen.");
-          }
-
-          const nextCards = summary.cards.map((card) =>
-            card._id === cardId || card.id === cardId
-              ? {
-                  ...card,
-                  status: FROZEN_CARD_STATUS,
-                  isActive: false,
-                  isLocked: true,
-                }
-              : card
-          );
-          const nextSummary = {
-            ...summary,
-            cards: sortByCreatedAtDesc(syncCardsToAccounts(nextCards, summary.accounts)).filter(
-              (card) => card.status !== REPLACED_CARD_STATUS
-            ),
-          };
-          const result =
-            nextSummary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-          return {
-            nextSummary,
-            result,
-          };
-        },
-        extractResult: (data) => data.card,
-      }),
-    [executeWithBankingFallback]
+    async (cardId) => {
+      try {
+        setError("");
+        const response = await API.post(`/banking/cards/${cardId}/freeze`);
+        applySummary(response.data, getUserStorageId());
+        return response.data.card;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to freeze card."
+        );
+        throw requestError;
+      }
+    },
+    [applySummary]
   );
 
   const replaceCard = useCallback(
-    async (cardId) =>
-      executeWithBankingFallback({
-        apiRequest: () => API.post(`/banking/cards/${cardId}/replace`),
-        localUpdate: (summary) => {
-          const targetCard =
-            summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-          if (!targetCard) {
-            throw new Error("Card not found.");
-          }
-
-          const account =
-            summary.accounts.find((item) => item._id === targetCard.accountId) || null;
-
-          const existingReplacement =
-            summary.cards.find(
-              (card) =>
-                (card._id === targetCard.replacedByCardId || card.id === targetCard.replacedByCardId) &&
-                card.status !== REPLACED_CARD_STATUS
-            ) || null;
-
-          if (existingReplacement) {
-            const nextCards = summary.cards.filter(
-              (card) => card._id !== targetCard._id && card.id !== targetCard.id
-            );
-
-            return {
-              nextSummary: {
-                ...summary,
-                cards: sortByCreatedAtDesc(nextCards),
-              },
-              result: {
-                oldCard: {
-                  ...targetCard,
-                  status: REPLACED_CARD_STATUS,
-                  isActive: false,
-                  isLocked: true,
-                },
-                newCard: existingReplacement,
-              },
-            };
-          }
-
-          if (!account) {
-            throw new Error("Account not found.");
-          }
-
-          const replacementCard = createSystemCard({
-            account,
-            cardType: targetCard.cardType,
-            createdAt: new Date().toISOString(),
-            offset: 31,
-          });
-          const replacementId = createId(`card-${normalizeCardType(targetCard.cardType) || "card"}`);
-
-          const rotatedReplacement = {
-            ...replacementCard,
-            _id: replacementId,
-            id: replacementId,
-            cardName: targetCard.cardName,
-            status: ACTIVE_CARD_STATUS,
-            isActive: Boolean(account.isActive),
-            isLocked: false,
-            contactlessEnabled: targetCard.contactlessEnabled,
-            onlinePaymentsEnabled: targetCard.onlinePaymentsEnabled,
-            atmWithdrawalsEnabled: targetCard.atmWithdrawalsEnabled,
-          };
-          const nextCards = summary.cards.map((card) =>
-            card._id === cardId || card.id === cardId
-              ? {
-                  ...card,
-                  status: REPLACED_CARD_STATUS,
-                  isActive: false,
-                  isLocked: true,
-                  replacedByCardId: rotatedReplacement._id,
-                  replacedAt: new Date().toISOString(),
-                }
-              : card
-          );
-          const nextSummary = {
-            ...summary,
-            cards: sortByCreatedAtDesc(
-              syncCardsToAccounts([rotatedReplacement, ...nextCards], summary.accounts)
-            ).filter((card) => card.status !== REPLACED_CARD_STATUS),
-          };
-
-          return {
-            nextSummary,
-            result: {
-              oldCard: {
-                ...targetCard,
-                status: REPLACED_CARD_STATUS,
-                isActive: false,
-                isLocked: true,
-                replacedByCardId: rotatedReplacement._id,
-                replacedAt: new Date().toISOString(),
-              },
-              newCard: rotatedReplacement,
-            },
-          };
-        },
-        extractResult: (data) => data.replacement,
-      }),
-    [executeWithBankingFallback]
+    async (cardId) => {
+      try {
+        setError("");
+        const response = await API.post(`/banking/cards/${cardId}/replace`);
+        applySummary(response.data, getUserStorageId());
+        return response.data.replacement;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to replace card."
+        );
+        throw requestError;
+      }
+    },
+    [applySummary]
   );
 
   const getCardDetails = useCallback(
@@ -1381,47 +1102,25 @@ export function AccountProvider({ children }) {
       if (cachedDetails) {
         return cachedDetails;
       }
+      try {
+        setError("");
+        const response = await API.get(`/banking/cards/${cardId}/details`);
+        const details = response.data.details;
 
-      let details;
+        setCardDetailsById((current) => ({
+          ...current,
+          [cardId]: details,
+        }));
 
-      if (dataModeRef.current !== "local") {
-        try {
-          const response = await API.get(`/banking/cards/${cardId}/details`);
-          details = response.data.details;
-        } catch (requestError) {
-          if (!shouldUseLocalFallback(requestError)) {
-            throw requestError;
-          }
-        }
+        return details;
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.error ||
+            requestError.message ||
+            "Failed to load card details."
+        );
+        throw requestError;
       }
-
-      if (!details) {
-        const summary = loadLocalBankingSummary(getUserStorageId(), bankingStateRef.current);
-        const targetCard =
-          summary.cards.find((card) => card._id === cardId || card.id === cardId) || null;
-
-        if (!targetCard) {
-          throw new Error("Card not found.");
-        }
-
-        details = {
-          cardId: targetCard._id,
-          cardType: targetCard.cardType,
-          cardName: targetCard.cardName,
-          last4Digits: targetCard.last4Digits,
-          expiryDate: targetCard.expiryDate,
-          status: targetCard.status,
-          maskedPan: buildMaskedPan(targetCard.last4Digits),
-          cvv: buildSimulatedCvv(targetCard._id),
-        };
-      }
-
-      setCardDetailsById((current) => ({
-        ...current,
-        [cardId]: details,
-      }));
-
-      return details;
     },
     [cardDetailsById]
   );
@@ -1429,6 +1128,9 @@ export function AccountProvider({ children }) {
   const value = useMemo(
     () => ({
       accounts,
+      allAccounts,
+      closedAccounts,
+      isAuthenticated,
       selectedAccount,
       selectedAccountId,
       selectedCards,
@@ -1436,7 +1138,6 @@ export function AccountProvider({ children }) {
       allCards,
       allTransactions,
       cardDetailsById,
-      hasActiveAccount,
       isLoading,
       error,
       dashboardSummary,
@@ -1447,12 +1148,8 @@ export function AccountProvider({ children }) {
         setSelectedAccountId(accountId);
         writeSelectedAccountId(userId, accountId);
       },
-      clearSelectedAccount: () => {
-        const userId = getUserStorageId();
-        setSelectedAccountId(null);
-        writeSelectedAccountId(userId, null);
-      },
       createAccount,
+      closeAccount,
       createCard,
       updateCard,
       freezeCard,
@@ -1466,9 +1163,12 @@ export function AccountProvider({ children }) {
     }),
     [
       accounts,
+      allAccounts,
       allCards,
       allTransactions,
       cardDetailsById,
+      closeAccount,
+      closedAccounts,
       createAccount,
       createCard,
       dashboardSummary,
@@ -1476,7 +1176,7 @@ export function AccountProvider({ children }) {
       error,
       freezeCard,
       getCardDetails,
-      hasActiveAccount,
+      isAuthenticated,
       insightsSummary,
       isLoading,
       payBill,

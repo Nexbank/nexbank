@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
+import { showErrorAlert, showSuccessToast } from "../utils/alerts";
 
 
 function Register() {
@@ -33,17 +34,17 @@ function Register() {
       !form.address ||
       !form.password
     ) {
-      alert("Please fill all required fields.");
+      await showErrorAlert("Missing details", "Please fill all required fields.");
       return;
     }
 
     if (form.id.length !== 13 || Number.isNaN(Number(form.id))) {
-      alert("SA ID must be exactly 13 digits.");
+      await showErrorAlert("Invalid SA ID", "SA ID must be exactly 13 digits.");
       return;
     }
 
     if (form.password !== form.confirm) {
-      alert("Passwords do not match.");
+      await showErrorAlert("Passwords do not match", "Please confirm the same password in both fields.");
       return;
     }
 
@@ -60,7 +61,7 @@ function Register() {
         password: form.password,
       });
 
-      alert("Registration successful! Please login.");
+      showSuccessToast("Registration successful.");
       navigate("/login");
     } catch (error) {
       const message =
@@ -68,7 +69,7 @@ function Register() {
         error.response?.data?.message ||
         "Registration failed. Please try again.";
 
-      alert(message);
+      await showErrorAlert("Registration failed", message);
     } finally {
       setIsSubmitting(false);
     }

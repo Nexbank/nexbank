@@ -19,18 +19,29 @@ function Toggle({ on, onToggle }) {
   );
 }
 
-function SettingRow({ icon, title, subtitle, toggle, onToggle, chevron, onClick }) {
+function SettingRow({
+  icon,
+  title,
+  subtitle,
+  toggle,
+  onToggle,
+  chevron,
+  onClick,
+  disabled = false,
+  badge = "",
+}) {
   return (
     <div
-      className="setting-row"
-      onClick={onClick}
-      style={onClick ? { cursor: "pointer" } : undefined}
+      className={`setting-row ${disabled ? "setting-row--disabled" : ""}`}
+      onClick={disabled ? undefined : onClick}
+      style={!disabled && onClick ? { cursor: "pointer" } : undefined}
     >
       <div className="setting-icon">{icon}</div>
       <div className="setting-text">
         <div className="setting-title">{title}</div>
         <div className="setting-subtitle">{subtitle}</div>
       </div>
+      {badge ? <span className="accounts-badge accounts-badge--unavailable">{badge}</span> : null}
       {toggle !== undefined && <Toggle on={toggle} onToggle={onToggle} />}
       {chevron && <span className="setting-chevron">→</span>}
     </div>
@@ -172,19 +183,11 @@ function AboutModal({ isOpen, onClose }) {
   );
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({ search, setSearch, searchResults }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS_STATE);
   const [loading, setLoading] = useState(true);
-  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
-  const [pinForm, setPinForm] = useState({
-    currentPin: "",
-    newPin: "",
-    confirmPin: "",
-  });
-  const [pinMessage, setPinMessage] = useState("");
-  const [pinError, setPinError] = useState("");
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -205,6 +208,8 @@ export default function SettingsPage() {
         );
 
         if (response.data.preferences) {
+          // 🔹 Future-ready
+          // Persisted preferences are real, while unfinished security features stay explicitly disabled instead of pretending to work.
           setSettings({
             biometric: response.data.preferences.twoFactor || false,
             privacy: true,
@@ -277,70 +282,18 @@ export default function SettingsPage() {
     }
   };
 
-  const openPinModal = () => {
-    setPinMessage("");
-    setPinError("");
-    setPinForm({ currentPin: "", newPin: "", confirmPin: "" });
-    setIsPinModalOpen(true);
-  };
-
-  const closePinModal = () => {
-    setPinMessage("");
-    setPinError("");
-    setIsPinModalOpen(false);
-  };
-
   const openHelpModal = () => setIsHelpModalOpen(true);
   const closeHelpModal = () => setIsHelpModalOpen(false);
   
   const openAboutModal = () => setIsAboutModalOpen(true);
   const closeAboutModal = () => setIsAboutModalOpen(false);
 
-  const handlePinChange = (event) => {
-    const { name, value } = event.target;
-    setPinForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const savePin = async (event) => {
-    event.preventDefault();
-
-    if (!/^\d{4,5}$/.test(pinForm.currentPin) || !/^\d{4,5}$/.test(pinForm.newPin)) {
-      setPinError("PIN must be 4 or 5 digits.");
-      setPinMessage("");
-      return;
-    }
-
-    if (pinForm.newPin !== pinForm.confirmPin) {
-      setPinError("New PIN and confirm PIN do not match.");
-      setPinMessage("");
-      return;
-    }
-
-    setPinError("");
-    setPinMessage("PIN updated successfully!");
-    
-    Swal.fire({
-      icon: 'success',
-      title: 'PIN Updated!',
-      text: 'Your PIN has been changed successfully.',
-      timer: 1500,
-      showConfirmButton: false,
-      background: '#111111',
-      color: '#e8e8e8'
-    });
-    
-    setTimeout(() => {
-      setPinMessage("");
-      closePinModal();
-    }, 1500);
-  };
-
   if (loading) {
     return (
       <div className="app">
         <Sidebar />
         <div className="main">
-          <Navbar />
+          <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
           <div className="content">
             <div className="loading-spinner">Loading settings...</div>
           </div>
@@ -353,16 +306,16 @@ export default function SettingsPage() {
     <div className="app">
       <Sidebar />
       <div className="main">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
         <div className="content">
           <div className="settings-container">
             <Section label="Security">
               <SettingRow
                 icon="🔑"
                 title="Change PIN"
-                subtitle="Update your security PIN"
-                chevron
-                onClick={openPinModal}
+                subtitle="PIN changes are not available yet."
+                disabled
+                badge="Coming Soon"
               />
               <SettingRow
                 icon="📱"
@@ -420,48 +373,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-
-      {/* PIN Change Modal */}
-      {isPinModalOpen && (
-        <div className="cards-modal-backdrop" role="presentation" onClick={closePinModal}>
-          <div className="cards-modal modal-dialog modal-dialog-centered" role="dialog" onClick={(event) => event.stopPropagation()}>
-            <div className="cards-modal-content modal-content">
-              <div className="cards-modal-header">
-                <div>
-                  <h2 className="cards-modal-title">Change PIN</h2>
-                  <p className="cards-modal-copy">Update your security PIN</p>
-                </div>
-                <button type="button" className="cards-modal-close" onClick={closePinModal}>×</button>
-              </div>
-
-              <form className="cards-form row g-3" onSubmit={savePin}>
-                <div className="col-12">
-                  <label className="cards-form-label">Current PIN</label>
-                  <input name="currentPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.currentPin} onChange={handlePinChange} required />
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label">New PIN</label>
-                  <input name="newPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.newPin} onChange={handlePinChange} required />
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label">Confirm PIN</label>
-                  <input name="confirmPin" type="password" inputMode="numeric" maxLength={5} className="form-control cards-form-control" value={pinForm.confirmPin} onChange={handlePinChange} required />
-                </div>
-
-                {pinError && <div className="col-12 text-danger">{pinError}</div>}
-                {pinMessage && <div className="col-12 text-success">{pinMessage}</div>}
-
-                <div className="col-12 cards-form-actions">
-                  <button type="button" className="cards-form-cancel" onClick={closePinModal}>Cancel</button>
-                  <button type="submit" className="cards-form-submit">Save PIN</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       <HelpCenterModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
       <AboutModal isOpen={isAboutModalOpen} onClose={closeAboutModal} />

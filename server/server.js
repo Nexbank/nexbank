@@ -33,7 +33,6 @@ const settingsRoutes = require("./routes/settingsRoutes");
  
 app.use("/api/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/banking", bankingRoutes);
 app.use("/api/settings", settingsRoutes);
  
  

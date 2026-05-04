@@ -3,27 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useNotification } from "../components/Notification";
 import API from "../services/api";
 
-const recoverySteps = [
-  {
-    title: "Step 1",
-    heading: "Confirm your South African ID",
-    description:
-      "Enter the 13-digit ID number linked to your NexBank profile.",
-  },
-  {
-    title: "Step 2",
-    heading: "Verify your email address",
-    description:
-      "Enter your email and verify using a one-time PIN.",
-  },
-  {
-    title: "Step 3",
-    heading: "Create your new password",
-    description:
-      "Choose a strong password and confirm it.",
-  },
-];
-
 export default function ForgotPassword() {
   const [step, setStep] = useState(0);
   const [emailGlobal, setEmailGlobal] = useState("");

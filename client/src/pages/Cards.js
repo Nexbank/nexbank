@@ -5,6 +5,7 @@ import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useAccount } from "../context/AccountContext";
+import API from "../services/api";
 import {
   showConfirmationAlert,
   showErrorAlert,
@@ -36,12 +37,58 @@ const humanizeValue = (value = "") =>
     .replace(/\b\w/g, (character) => character.toUpperCase())
     .trim();
 
+function PinVerificationModal({ isOpen, pin, onChange, onClose, onSubmit, isSubmitting }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="cards-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="cards-modal modal-dialog modal-dialog-centered"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <form className="cards-modal-content modal-content" onSubmit={onSubmit}>
+          <div className="cards-modal-header">
+            <div>
+              <h2 className="cards-modal-title">Verify PIN</h2>
+              <p className="cards-modal-copy">Enter your PIN to reveal card details.</p>
+            </div>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
+          </div>
+
+          <label className="cards-form-label" htmlFor="card-details-pin">PIN</label>
+          <input
+            id="card-details-pin"
+            className="cards-form-control"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={pin}
+            onChange={(event) => onChange(event.target.value)}
+          />
+
+          <div className="cards-form-actions">
+            <button type="button" className="cards-form-cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="cards-form-submit" disabled={isSubmitting}>
+              {isSubmitting ? "Verifying..." : "Confirm"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Cards({ search, setSearch, searchResults }) {
   const navigate = useNavigate();
   const {
     accounts,
     selectedAccount,
     selectedCards,
+    user,
     createCard,
     getCardDetails,
     freezeCard,
@@ -54,13 +101,8 @@ export default function Cards({ search, setSearch, searchResults }) {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const storedUser = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      return {};
-    }
-  }, []);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pin, setPin] = useState("");
 
   const visibleCards = useMemo(() => {
     const searchValue = (search || "").trim().toLowerCase();
@@ -129,12 +171,12 @@ export default function Cards({ search, setSearch, searchResults }) {
                 : "physical"
             ],
           cardholderName:
-            storedUser?.displayName?.toUpperCase() ||
-            [storedUser?.firstname, storedUser?.surname].filter(Boolean).join(" ").toUpperCase() ||
+            user?.displayName?.toUpperCase() ||
+            [user?.firstname, user?.surname].filter(Boolean).join(" ").toUpperCase() ||
             "NEXBANK CUSTOMER",
         };
       }),
-    [accountsById, selectedAccount, storedUser, visibleCards]
+    [accountsById, selectedAccount, user, visibleCards]
   );
 
   const selectedCard =
@@ -193,19 +235,63 @@ export default function Cards({ search, setSearch, searchResults }) {
       return;
     }
 
+    if (user?.mustChangePin) {
+      await showErrorAlert(
+        "PIN change required",
+        "Please change your temporary PIN before viewing card details."
+      );
+      navigate("/settings");
+      return;
+    }
+
+    if (user?.hasPin === false) {
+      await showErrorAlert("PIN required", "Please set a PIN in Settings before viewing card details.");
+      navigate("/settings");
+      return;
+    }
+
+    setPin("");
+    setIsPinModalOpen(true);
+  };
+
+  const closePinModal = () => {
+    if (!isSubmitting) {
+      setIsPinModalOpen(false);
+      setPin("");
+    }
+  };
+
+  const handleVerifyPin = async (event) => {
+    event.preventDefault();
+
+    if (!selectedCard) {
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError("");
       // 🔹 Banking Logic
       // Sensitive card details are fetched on demand instead of being included in the regular summary payload.
+      await API.post("/auth/verify-pin", { pin });
       setDetails(await getCardDetails(selectedCard._id));
+      setIsPinModalOpen(false);
+      setPin("");
     } catch (requestError) {
       const message =
         requestError.response?.data?.error ||
         requestError.message ||
-        "Failed to load card details.";
+        "Failed to verify PIN.";
       setError(message);
-      await showErrorAlert("Unable to load card details", message);
+
+      if (message === "No PIN set") {
+        await showErrorAlert("PIN required", "Please set a PIN in Settings before viewing card details.");
+        navigate("/settings");
+      } else if (message === "Incorrect PIN") {
+        await showErrorAlert("Incorrect PIN", "Incorrect PIN.");
+      } else {
+        await showErrorAlert("Unable to reveal card details", message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -555,6 +641,14 @@ export default function Cards({ search, setSearch, searchResults }) {
           </div>
         </main>
       </div>
+      <PinVerificationModal
+        isOpen={isPinModalOpen}
+        pin={pin}
+        onChange={(value) => setPin(value.replace(/\D/g, "").slice(0, 6))}
+        onClose={closePinModal}
+        onSubmit={handleVerifyPin}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-import Swal from "sweetalert2";
+import API from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import { useAccount } from "../context/AccountContext";
+import { showErrorAlert, showSuccessAlert, showSuccessToast } from "../utils/alerts";
 
 const DEFAULT_SETTINGS_STATE = {
   biometric: false,
@@ -10,6 +11,14 @@ const DEFAULT_SETTINGS_STATE = {
   txAlerts: true,
   doNotDisturb: false,
 };
+
+const DEFAULT_PIN_FORM = {
+  currentPin: "",
+  newPin: "",
+  confirmPin: "",
+};
+
+const isValidPin = (pin) => /^\d{4,6}$/.test(pin);
 
 function Toggle({ on, onToggle }) {
   return (
@@ -53,6 +62,92 @@ function Section({ label, children }) {
     <div className="settings-section">
       <div className="settings-label">{label}</div>
       <div className="settings-box">{children}</div>
+    </div>
+  );
+}
+
+function ChangePinModal({
+  isOpen,
+  form,
+  hasExistingPin,
+  isTemporaryPin,
+  onChange,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="cards-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="cards-modal modal-dialog modal-dialog-centered"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <form className="cards-modal-content modal-content" onSubmit={onSubmit}>
+          <div className="cards-modal-header">
+            <div>
+              <h2 className="cards-modal-title">{hasExistingPin ? "Change PIN" : "Set PIN"}</h2>
+              <p className="cards-modal-copy">Use a 4 to 6 digit PIN for card detail reveal.</p>
+            </div>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
+          </div>
+
+          <div className="settings-pin-form">
+            {hasExistingPin ? (
+              <>
+                <label className="cards-form-label" htmlFor="current-pin">
+                  {isTemporaryPin ? "Temporary PIN" : "Current PIN"}
+                </label>
+                <input
+                  id="current-pin"
+                  className="cards-form-control"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="current-password"
+                  value={form.currentPin}
+                  onChange={(event) => onChange("currentPin", event.target.value)}
+                />
+              </>
+            ) : null}
+
+            <label className="cards-form-label" htmlFor="new-pin">New PIN</label>
+            <input
+              id="new-pin"
+              className="cards-form-control"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={form.newPin}
+              onChange={(event) => onChange("newPin", event.target.value)}
+            />
+
+            <label className="cards-form-label" htmlFor="confirm-pin">
+              {hasExistingPin ? "Confirm New PIN" : "Confirm PIN"}
+            </label>
+            <input
+              id="confirm-pin"
+              className="cards-form-control"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={form.confirmPin}
+              onChange={(event) => onChange("confirmPin", event.target.value)}
+            />
+          </div>
+
+          <div className="cards-form-actions">
+            <button type="button" className="cards-form-cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="cards-form-submit" disabled={isSubmitting}>
+              {isSubmitting ? "Updating..." : hasExistingPin ? "Update PIN" : "Set PIN"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -184,10 +279,14 @@ function AboutModal({ isOpen, onClose }) {
 }
 
 export default function SettingsPage({ search, setSearch, searchResults }) {
+  const { user, updateStoredUser } = useAccount();
   const [settings, setSettings] = useState(DEFAULT_SETTINGS_STATE);
   const [loading, setLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinForm, setPinForm] = useState(DEFAULT_PIN_FORM);
+  const [isPinSubmitting, setIsPinSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -200,12 +299,10 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
       }
 
       try {
-        const response = await axios.get(
-          `http://localhost:5000/api/settings/${userId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const profileResponse = await API.get("/profile/me");
+        updateStoredUser(profileResponse.data);
+
+        const response = await API.get(`/settings/${userId}`);
 
         if (response.data.preferences) {
           // 🔹 Future-ready
@@ -224,7 +321,7 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
     };
 
     fetchSettings();
-  }, []);
+  }, [updateStoredUser]);
 
   const saveSettings = async (updatedSettings) => {
     const token = localStorage.getItem("token");
@@ -235,18 +332,12 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
     }
 
     try {
-      await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
+      await API.put(
+        `/settings/${userId}`,
         {
           twoFactor: updatedSettings.biometric,
           pushNotifications: updatedSettings.txAlerts,
           doNotDisturb: updatedSettings.doNotDisturb,
-        },
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
         }
       );
       return true;
@@ -262,23 +353,69 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
     const success = await saveSettings(updated);
     
     if (success) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Settings Saved!',
-        text: 'Your preference has been updated.',
-        timer: 1500,
-        showConfirmButton: false,
-        background: '#111111',
-        color: '#e8e8e8'
-      });
+      showSuccessToast("Your preference has been updated.");
     } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Failed to Save',
-        text: 'Please try again later.',
-        background: '#111111',
-        color: '#e8e8e8'
-      });
+      await showErrorAlert("Failed to Save", "Please try again later.");
+    }
+  };
+
+  const openPinModal = () => {
+    setPinForm(DEFAULT_PIN_FORM);
+    setIsPinModalOpen(true);
+  };
+
+  const closePinModal = () => {
+    if (!isPinSubmitting) {
+      setIsPinModalOpen(false);
+      setPinForm(DEFAULT_PIN_FORM);
+    }
+  };
+
+  const updatePinForm = (field, value) => {
+    setPinForm((current) => ({
+      ...current,
+      [field]: value.replace(/\D/g, "").slice(0, 6),
+    }));
+  };
+
+  const handleChangePin = async (event) => {
+    event.preventDefault();
+
+    const hasExistingPin = user?.hasPin !== false;
+
+    if ((hasExistingPin && !isValidPin(pinForm.currentPin)) || !isValidPin(pinForm.newPin)) {
+      await showErrorAlert("Invalid PIN", "PIN must be digits only and 4-6 digits long.");
+      return;
+    }
+
+    if (pinForm.newPin !== pinForm.confirmPin) {
+      await showErrorAlert("PINs do not match", "New PIN and Confirm New PIN must match.");
+      return;
+    }
+
+    try {
+      setIsPinSubmitting(true);
+      const response = hasExistingPin
+        ? await API.patch("/auth/change-pin", pinForm)
+        : await API.post("/auth/set-pin", {
+            newPin: pinForm.newPin,
+            confirmPin: pinForm.confirmPin,
+          });
+      updateStoredUser(response.data.user);
+      setIsPinModalOpen(false);
+      setPinForm(DEFAULT_PIN_FORM);
+      await showSuccessAlert(
+        hasExistingPin ? "PIN updated" : "PIN set",
+        response.data.message || "PIN updated successfully."
+      );
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to update PIN.";
+      await showErrorAlert("PIN update failed", message);
+    } finally {
+      setIsPinSubmitting(false);
     }
   };
 
@@ -312,10 +449,16 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
             <Section label="Security">
               <SettingRow
                 icon="🔑"
-                title="Change PIN"
-                subtitle="PIN changes are not available yet."
-                disabled
-                badge="Coming Soon"
+                title={user?.hasPin === false ? "Set PIN" : "Change PIN"}
+                subtitle={
+                  user?.hasPin === false
+                    ? "Set a PIN before viewing card details."
+                    : user?.mustChangePin
+                      ? "You are using a temporary PIN. Please change it before viewing card details."
+                      : "Update the PIN used to reveal card details."
+                }
+                chevron
+                onClick={openPinModal}
               />
               <SettingRow
                 icon="📱"
@@ -376,6 +519,16 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
       <HelpCenterModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
       <AboutModal isOpen={isAboutModalOpen} onClose={closeAboutModal} />
+      <ChangePinModal
+        isOpen={isPinModalOpen}
+        form={pinForm}
+        hasExistingPin={user?.hasPin !== false}
+        isTemporaryPin={Boolean(user?.mustChangePin)}
+        onChange={updatePinForm}
+        onClose={closePinModal}
+        onSubmit={handleChangePin}
+        isSubmitting={isPinSubmitting}
+      />
     </div>
   );
 }

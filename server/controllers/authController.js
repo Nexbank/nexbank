@@ -2,6 +2,16 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const generateTemporaryPin = () => String(Math.floor(1000 + Math.random() * 9000));
+
+const sanitizeUser = (user) => {
+  const safeUser = user.toObject ? user.toObject() : { ...user };
+  safeUser.hasPin = Boolean(safeUser.pinHash);
+  delete safeUser.password;
+  delete safeUser.pinHash;
+  return safeUser;
+};
+
 // REGISTER
 exports.register = async (req, res) => {
   try {
@@ -15,16 +25,25 @@ exports.register = async (req, res) => {
 
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+    const temporaryPin = generateTemporaryPin();
+    const pinHash = await bcrypt.hash(temporaryPin, 10);
 
     const user = new User({
       email,
       password: hashedPassword,
-      displayName
+      pinHash,
+      mustChangePin: true,
+      pinUpdatedAt: null,
+      displayName,
+      location: req.body.location || "Not specified"
     });
 
     await user.save();
 
-    res.status(201).json({ message: "User registered successfully" });
+    res.status(201).json({
+      message: "User registered successfully",
+      temporaryPin,
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -36,7 +55,7 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+pinHash");
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -52,7 +71,7 @@ exports.login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ token, user });
+    res.json({ token, user: sanitizeUser(user) });
 
   } catch (err) {
     res.status(500).json({ error: err.message });

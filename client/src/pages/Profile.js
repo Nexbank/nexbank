@@ -4,7 +4,7 @@ import axios from "axios";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import { useNotification } from "../components/Notification";
 import { useAccount } from "../context/AccountContext";
 
 const humanizeValue = (value = "") =>
@@ -39,6 +39,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
   }, []);
   const navigate = useNavigate();
   const { accounts, selectedAccount } = useAccount();
+  const { showNotification } = useNotification();
 
   // State for user information
   const [userInfo, setUserInfo] = useState({});

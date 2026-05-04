@@ -289,12 +289,20 @@ const normalizeTransaction = (transaction, index) => {
     accountId: transaction?.accountId || "",
     cardId: transaction?.cardId || transaction?.metadata?.cardId || null,
     amount: roundCurrency(transaction?.amount),
+    fee: roundCurrency(transaction?.fee),
+    impactAmount:
+      typeof transaction?.impactAmount === "number"
+        ? roundCurrency(transaction.impactAmount)
+        : undefined,
     direction: transaction?.direction || "debit",
     type: transaction?.type || "transfer",
     status: transaction?.status || "completed",
+    category: transaction?.category || "",
     reference: transaction?.reference || "",
     description: transaction?.description || humanizeValue(transaction?.type || "transaction"),
     metadata: transaction?.metadata || {},
+    billerName: transaction?.billerName || "",
+    dynamicFields: transaction?.dynamicFields || {},
     createdAt: transaction?.createdAt || toIsoDate(Date.now() - index * DAY_IN_MS),
   };
 };

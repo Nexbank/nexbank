@@ -401,16 +401,23 @@ body {
   padding: 0;
 }
 
-.navbar__notification-dot {
+.navbar__notification-dot,
+.navbar__notification-badge {
   position: absolute;
-  top: 6px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
+  top: 2px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
   border-radius: 999px;
   background: #18c37e;
   border: 2px solid #050505;
   box-sizing: border-box;
+  color: #02140c;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
 }
 
 .navbar__notification-panel {
@@ -440,6 +447,12 @@ body {
   font-weight: 800;
 }
 
+.navbar__notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .navbar__notification-close {
   border: none;
   background: transparent;
@@ -460,6 +473,11 @@ body {
   border-radius: 14px;
   background: #171717;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.navbar__notification-item--unread {
+  border-color: rgba(24, 195, 126, 0.35);
+  background: rgba(24, 195, 126, 0.08);
 }
 
 .navbar__notification-item-head {
@@ -487,6 +505,17 @@ body {
   color: #b4bac4;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.navbar__notification-read {
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  color: #18c37e;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
 }
 
 .navbar__avatar {
@@ -2692,6 +2721,31 @@ body {
   line-height: 1.6;
 }
 
+.insights-empty-message-card {
+  min-height: 100%;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.insights-empty-message-card h2 {
+  margin: 0 0 8px;
+  color: #f5f7fa;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.insights-empty-message-card p {
+  margin: 0;
+  color: #b6bac2;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .insights-drilldown-section {
   width: 100%;
   margin-top: 22px;
@@ -2841,6 +2895,18 @@ body {
   border-left: 4px solid #eab308;
 }
 
+.insights-category-card.category-bills {
+  border-left: 4px solid #fb7185;
+}
+
+.insights-category-card.category-transfers {
+  border-left: 4px solid #38bdf8;
+}
+
+.insights-category-card.category-account-fees {
+  border-left: 4px solid #c084fc;
+}
+
 .insights-category-card.category-auto-0 { border-left: 4px solid #10b981; }
 .insights-category-card.category-auto-1 { border-left: 4px solid #38bdf8; }
 .insights-category-card.category-auto-2 { border-left: 4px solid #f59e0b; }
@@ -2900,6 +2966,21 @@ body {
 .insights-category-card.category-gambling .insights-category-icon,
 .insights-category-card.category-gambling .insights-progress-fill {
   background: #eab308;
+}
+
+.insights-category-card.category-bills .insights-category-icon,
+.insights-category-card.category-bills .insights-progress-fill {
+  background: #fb7185;
+}
+
+.insights-category-card.category-transfers .insights-category-icon,
+.insights-category-card.category-transfers .insights-progress-fill {
+  background: #38bdf8;
+}
+
+.insights-category-card.category-account-fees .insights-category-icon,
+.insights-category-card.category-account-fees .insights-progress-fill {
+  background: #c084fc;
 }
 
 .insights-category-card.category-auto-0 .insights-category-icon,
@@ -4092,6 +4173,7 @@ body {
     margin-bottom: 8px;
   }
 }
+
 /* ==========================  end of landingpage css and profile css begins ======================================= */
 
 /* =========================

@@ -8,8 +8,37 @@ const API = axios.create({
 // Surface generic connectivity/server failures globally while keeping page-level
 // validation and business-rule messages handled by the calling component.
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = String(response.config?.method || "").toLowerCase();
+    const url = String(response.config?.url || "");
+    const shouldRefreshNotifications =
+      (
+        ["post", "patch"].includes(method) &&
+        !url.includes("/notifications") &&
+        (
+          url.includes("/banking/") ||
+          url.includes("/auth/login") ||
+          url.includes("/auth/set-pin") ||
+          url.includes("/auth/change-pin") ||
+          url.includes("/auth/verify-pin")
+        )
+      ) ||
+      (method === "get" && url.includes("/banking/cards/") && url.includes("/details"));
+
+    if (shouldRefreshNotifications) {
+      window.dispatchEvent(new Event("nexbank-notifications-refresh"));
+    }
+
+    return response;
+  },
   (error) => {
+    const method = String(error.config?.method || "").toLowerCase();
+    const url = String(error.config?.url || "");
+
+    if (["post", "patch"].includes(method) && url.includes("/auth/verify-pin")) {
+      window.dispatchEvent(new Event("nexbank-notifications-refresh"));
+    }
+
     if (!error.response) {
       showNotification("error", "Network error. Please check your connection and try again.", {
         title: "Connection Error",

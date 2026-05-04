@@ -13,7 +13,6 @@ import {
   FiLogOut,
   FiX,
 } from "react-icons/fi";
-import { useNotification } from "./Notification";
 
 const navItems = [
   { name: "Dashboard", path: "/dashboard", icon: FiGrid },
@@ -30,7 +29,6 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { showNotification } = useNotification();
 
   useEffect(() => {
     setIsMobileOpen(false);

@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/authMiddleware");
 const Otp = require("../models/Otp");
 const nodemailer = require("nodemailer");
+const { createNotification } = require("../services/notificationService");
 
 const getDuplicateKeyMessage = (error) => {
   const duplicateField =
@@ -250,6 +251,15 @@ router.post("/register", async (req, res) => {
     });
 
     await newUser.save();
+    await createNotification(newUser._id, {
+      title: "Registration successful",
+      message: "Your NexBank profile was created successfully.",
+      type: "auth",
+      metadata: {
+        event: "registration_success",
+        email: normalizedEmail,
+      },
+    });
     console.log(`User registered: ${normalizedEmail}`);
 
     res.status(201).json({
@@ -294,6 +304,15 @@ router.post("/login", async (req, res) => {
     const safeUser = sanitizeUser(user);
 
     console.log(`Successfully logged in: ${email}`);
+    await createNotification(user._id, {
+      title: "Successful login",
+      message: "Your NexBank account was signed in successfully.",
+      type: "auth",
+      metadata: {
+        event: "login_success",
+        email: user.email,
+      },
+    });
 
     res.json({
       message: "Login successful",
@@ -328,6 +347,14 @@ router.post("/set-pin", authMiddleware, async (req, res) => {
     user.mustChangePin = false;
     user.pinUpdatedAt = new Date();
     await user.save();
+    await createNotification(user._id, {
+      title: "PIN set",
+      message: "Your card details PIN was set successfully.",
+      type: "security",
+      metadata: {
+        event: "pin_set",
+      },
+    });
 
     res.json({
       message: "PIN set successfully.",
@@ -377,6 +404,14 @@ router.patch("/change-pin", authMiddleware, async (req, res) => {
     user.mustChangePin = false;
     user.pinUpdatedAt = new Date();
     await user.save();
+    await createNotification(user._id, {
+      title: "PIN changed",
+      message: "Your card details PIN was changed successfully.",
+      type: "security",
+      metadata: {
+        event: "pin_changed",
+      },
+    });
 
     res.json({
       message: "PIN updated successfully.",
@@ -410,6 +445,14 @@ router.post("/verify-pin", authMiddleware, async (req, res) => {
     const isPinValid = await bcrypt.compare(String(pin || ""), user.pinHash);
 
     if (!isPinValid) {
+      await createNotification(user._id, {
+        title: "Incorrect PIN attempt",
+        message: "An incorrect PIN was entered while trying to view card details.",
+        type: "security",
+        metadata: {
+          event: "card_details_incorrect_pin",
+        },
+      });
       return res.status(400).json({ error: "Incorrect PIN" });
     }
 

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import axios from "axios";
 import { FiAlertCircle, FiAlertTriangle, FiCheckCircle, FiInfo, FiX } from "react-icons/fi";
 
 const NotificationContext = createContext(null);
@@ -63,6 +64,7 @@ function NotificationToast({ notification, onClose }) {
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [notificationFeed, setNotificationFeed] = useState([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const timeoutMapRef = useRef(new Map());
 
   const removeNotification = useCallback((id) => {
@@ -97,7 +99,6 @@ export function NotificationProvider({ children }) {
     };
 
     setNotifications((current) => [nextNotification, ...current]);
-    setNotificationFeed((current) => [nextNotification, ...current].slice(0, 8));
 
     if (nextNotification.duration > 0) {
       const timeoutId = window.setTimeout(() => {
@@ -109,6 +110,62 @@ export function NotificationProvider({ children }) {
 
     return id;
   }, [removeNotification]);
+
+  const getAuthHeaders = useCallback(() => {
+    const token = window.localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!window.localStorage.getItem("token")) {
+      setNotificationFeed([]);
+      return [];
+    }
+
+    try {
+      setIsLoadingNotifications(true);
+      const response = await axios.get("http://localhost:5000/api/notifications", {
+        headers: getAuthHeaders(),
+      });
+      const nextNotifications = Array.isArray(response.data?.notifications)
+        ? response.data.notifications
+        : [];
+
+      setNotificationFeed(nextNotifications);
+      return nextNotifications;
+    } catch {
+      return [];
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, [getAuthHeaders]);
+
+  const markNotificationRead = useCallback(
+    async (notificationId) => {
+      if (!notificationId) {
+        return null;
+      }
+
+      const response = await axios.patch(
+        `http://localhost:5000/api/notifications/${notificationId}/read`,
+        {},
+        { headers: getAuthHeaders() }
+      );
+      await refreshNotifications();
+      return response.data?.notification || null;
+    },
+    [getAuthHeaders, refreshNotifications]
+  );
+
+  const markAllNotificationsRead = useCallback(async () => {
+    const response = await axios.patch(
+      "http://localhost:5000/api/notifications/read-all",
+      {},
+      { headers: getAuthHeaders() }
+    );
+    await refreshNotifications();
+    return response.data;
+  }, [getAuthHeaders, refreshNotifications]);
 
   useEffect(() => {
     const timeoutMap = timeoutMapRef.current;
@@ -122,14 +179,59 @@ export function NotificationProvider({ children }) {
     };
   }, [addNotification]);
 
+  useEffect(() => {
+    refreshNotifications().catch(() => {});
+
+    const handleRefresh = () => {
+      refreshNotifications().catch(() => {});
+    };
+
+    const handleAuthChanged = () => {
+      if (!window.localStorage.getItem("token")) {
+        setNotificationFeed([]);
+        return;
+      }
+
+      refreshNotifications().catch(() => {});
+    };
+
+    window.addEventListener("nexbank-notifications-refresh", handleRefresh);
+    window.addEventListener("nexbank-auth-changed", handleAuthChanged);
+
+    return () => {
+      window.removeEventListener("nexbank-notifications-refresh", handleRefresh);
+      window.removeEventListener("nexbank-auth-changed", handleAuthChanged);
+    };
+  }, [refreshNotifications]);
+
+  const unreadCount = useMemo(
+    () => notificationFeed.filter((notification) => !notification.isRead).length,
+    [notificationFeed]
+  );
+
   const value = useMemo(
     () => ({
       notifications,
       notificationFeed,
+      unreadCount,
+      isLoadingNotifications,
       showNotification: addNotification,
       removeNotification,
+      refreshNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
     }),
-    [addNotification, notificationFeed, notifications, removeNotification]
+    [
+      addNotification,
+      isLoadingNotifications,
+      markAllNotificationsRead,
+      markNotificationRead,
+      notificationFeed,
+      notifications,
+      refreshNotifications,
+      removeNotification,
+      unreadCount,
+    ]
   );
 
   return (

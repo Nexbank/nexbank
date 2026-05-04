@@ -22,11 +22,13 @@ const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require("./routes/profile");
 const bankingRoutes = require("./routes/bankingRoutes");
 const paybillRoutes = require("./routes/paybill");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 app.use("/api/profile", profileRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/banking", bankingRoutes);
 app.use("/api/banking", paybillRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 
 const settingsRoutes = require("./routes/settingsRoutes");

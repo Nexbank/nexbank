@@ -5696,6 +5696,30 @@ body {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
+.nb-text-left {
+  text-align: left;
+}
+
+.nb-grid {
+  display: grid;
+}
+
+.nb-gap-10 {
+  gap: 10px;
+}
+
+.nb-gap-8 {
+  gap: 8px;
+}
+
+.nb-mb-14 {
+  margin: 0 0 14px;
+}
+
+.nb-mb-10 {
+  margin: 0 0 10px;
+}
+
 .accounts-close-requirements,
 .accounts-close-linked-cards {
   display: grid;

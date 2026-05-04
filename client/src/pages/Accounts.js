@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { FiBriefcase, FiPlus } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -111,17 +111,17 @@ export default function Accounts({ search, setSearch, searchResults }) {
     const confirmation = await showConfirmationAlert({
       title: `Close ${account.name}?`,
       html: `
-        <div style="text-align:left;">
-          <p style="margin:0 0 14px;">This account can only be closed if the balance is R0.00 and there are no pending transactions.</p>
-          <div style="display:grid;gap:10px;margin-bottom:14px;">
+        <div class="nb-text-left">
+          <p class="nb-mb-14">This account can only be closed if the balance is R0.00 and there are no pending transactions.</p>
+          <div class="nb-grid nb-gap-10 nb-mb-14">
             <div><strong>Balance must be R0.00:</strong> ${hasBalance ? "Not met" : "Met"}</div>
             <div><strong>No pending transactions:</strong> ${hasPendingTransactions ? "Not met" : "Met"}</div>
             <div><strong>No active cards:</strong> ${hasActiveCards ? "Will be handled automatically" : "Met"}</div>
           </div>
           ${
             hasActiveCards
-              ? `<p style="margin:0 0 10px;">This account has active cards. They will be blocked automatically.</p>
-                 <div style="display:grid;gap:8px;">${activeCards
+              ? `<p class="nb-mb-10">This account has active cards. They will be blocked automatically.</p>
+                 <div class="nb-grid nb-gap-8">${activeCards
                    .map(
                      (card) =>
                        `<div><strong>${card.cardName || card.cardType}</strong><br/><span>${card.cardType} • ${

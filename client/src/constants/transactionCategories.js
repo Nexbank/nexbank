@@ -15,9 +15,14 @@ export const spendingCategories = [
   "Transport",
   "Entertainment",
   "Utilities",
+  "Medical",
+  "Airtime & Data",
+  "Subscription Fee",
+  "Clothing & Accessories",
+  "Lotto & Gambling",
 ];
 
-export const depositCategories = ["Income", "Savings", "Refund", "Gift"];
+export const depositCategories = ["Income", "Savings", "Refund", "Gift" ,];
 
 const defaultCategoryMeta = {
   color: "#6b7280",

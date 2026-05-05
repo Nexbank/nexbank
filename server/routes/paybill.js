@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const Account = require("../models/Account");
 const authMiddleware = require("../middleware/authMiddleware");
+const { createNotification } = require("../services/notificationService");
 const {
   createTransaction,
   getBankingSummary,
@@ -84,6 +85,21 @@ router.post("/pay-bill", authMiddleware, async (req, res) => {
       billerName: billerName || "",
       dynamicFields,
     });
+    if (transaction.status === "completed") {
+      await createNotification(user._id, {
+        title: "Bill payment completed",
+        message: `R${Number(transaction.amount || 0).toFixed(2)} was paid to ${billerName || "your biller"}.`,
+        type: "transaction",
+        metadata: {
+          event: "bill_payment_completed",
+          transactionId: transaction._id,
+          accountId: transaction.accountId,
+          amount: transaction.amount,
+          fee: transaction.fee || 0,
+          billerName: billerName || "",
+        },
+      });
+    }
 
     return res.status(201).json({
       message: "Bill paid successfully",

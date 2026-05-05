@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { useNotification } from "../components/Notification";
 import { showErrorAlert, showSuccessAlert } from "../utils/alerts";
 
 
 function Register() {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
   const [form, setForm] = useState({
     firstname: "",
     surname: "",
@@ -20,12 +18,12 @@ function Register() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (event) => {
-    setForm({ ...form, [event.target.name]: event.target.value });
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleRegister = async (event) => {
-    event.preventDefault();
+  const handleRegister = async (e) => {
+    e.preventDefault();
 
     if (
       !form.firstname ||
@@ -49,11 +47,6 @@ function Register() {
       await showErrorAlert("Passwords do not match", "Please confirm the same password in both fields.");
       return;
     }
-
-    showNotification("info", "Creating your NexBank profile and preparing your onboarding journey.", {
-      title: "Registration In Progress",
-      duration: 2200,
-    });
 
     try {
       setIsSubmitting(true);
@@ -94,11 +87,12 @@ function Register() {
           <div className="auth-panel-frame">
             <div className="auth-panel-glow" />
             <div className="auth-card auth-card--wide">
+              {/* Logo with slogan */}
               <div className="auth-logo-container text-center">
                 <div className="auth-logo-wrapper">
-                  <img
-                    src="/NexBank-logo.png"
-                    alt="NexBank Logo"
+                  <img 
+                    src="/NexBank-logo.png" 
+                    alt="NexBank Logo" 
                     className="auth-logo"
                   />
                   <span className="auth-slogan">Your money simplified</span>

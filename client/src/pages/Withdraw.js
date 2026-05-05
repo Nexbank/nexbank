@@ -55,8 +55,6 @@ export default function Withdraw({ search, setSearch, searchResults }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const amount = Number(form.amount);
-    const fee = Number(form.fee || 0);
 
     if (!amount || amount <= 0) {
       await showErrorAlert("Invalid amount", "Please enter a valid withdrawal amount.");
@@ -65,11 +63,6 @@ export default function Withdraw({ search, setSearch, searchResults }) {
 
     if (!selectedAccount?._id) {
       await showErrorAlert("No account selected", "Select an account before making a withdrawal.");
-      return;
-    }
-
-    if (!Number.isFinite(fee) || fee < 0) {
-      alert("Please enter a valid withdrawal fee.");
       return;
     }
 

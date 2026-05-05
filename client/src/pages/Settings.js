@@ -461,14 +461,14 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
                 onClick={openPinModal}
               />
               <SettingRow
-                icon="BIO"
+                icon="📱"
                 title="Biometric Login"
                 subtitle="Use FaceID or Fingerprint"
                 toggle={settings.biometric}
                 onToggle={() => toggle("biometric")}
               />
               <SettingRow
-                icon="PRV"
+                icon="👁️"
                 title="Privacy Mode"
                 subtitle="Hide balances on dashboard"
                 toggle={settings.privacy}
@@ -478,14 +478,14 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
             <Section label="Notifications">
               <SettingRow
-                icon="ALRT"
+                icon="🔔"
                 title="Transaction Alerts"
                 subtitle="Get notified for every spend"
                 toggle={settings.txAlerts}
                 onToggle={() => toggle("txAlerts")}
               />
               <SettingRow
-                icon="DND"
+                icon="🌙"
                 title="Do Not Disturb"
                 subtitle="Mute alerts during night"
                 toggle={settings.doNotDisturb}
@@ -495,14 +495,14 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
             <Section label="Support">
               <SettingRow
-                icon="HELP"
+                icon="❓"
                 title="Help Center"
                 subtitle="FAQs and support guides"
                 chevron
                 onClick={openHelpModal}
               />
               <SettingRow
-                icon="INFO"
+                icon="ℹ️"
                 title="About NexBank"
                 subtitle="Version 2.4.0 (Build 102)"
                 chevron
@@ -511,7 +511,7 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
             </Section>
 
             <div className="settings-footer">
-              NexBank Digital Banking • Made with care in South Africa
+              NexBank Digital Banking • Made with ❤️ in South Africa
             </div>
           </div>
         </div>

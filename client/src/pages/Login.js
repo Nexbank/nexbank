@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { useNotification } from "../components/Notification";
 import { showErrorAlert, showSuccessToast } from "../utils/alerts";
 
 function Login() {
@@ -10,12 +9,14 @@ function Login() {
       <div className="row g-0 min-vh-100">
         <div className="col-lg-12 auth-form-panel">
           <div className="auth-panel-frame">
+            <div className="" />
             <div className="auth-card">
+              {/* Logo with slogan */}
               <div className="auth-logo-container text-center">
                 <div className="auth-logo-wrapper">
-                  <img
-                    src="/NexBank-logo.png"
-                    alt="NexBank Logo"
+                  <img 
+                    src="/NexBank-logo.png" 
+                    alt="NexBank Logo" 
                     className="auth-logo"
                   />
                   <span className="auth-slogan">Your money simplified</span>
@@ -40,23 +41,17 @@ function Login() {
 
 function LoginForm() {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async (event) => {
-    event.preventDefault();
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
     if (!email || !password) {
       await showErrorAlert("Missing details", "Please enter your email and password.");
       return;
     }
-
-    showNotification("info", "Checking your credentials and preparing your dashboard.", {
-      title: "Login In Progress",
-      duration: 2200,
-    });
 
     try {
       setIsSubmitting(true);
@@ -102,7 +97,7 @@ function LoginForm() {
           type="email"
           placeholder="Enter your email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
         />
       </div>
 
@@ -116,7 +111,7 @@ function LoginForm() {
           type="password"
           placeholder="Enter your password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
         />
       </div>
 

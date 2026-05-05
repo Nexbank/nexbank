@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { showErrorAlert, showSuccessToast } from "../utils/alerts";
+import { showErrorAlert, showSuccessAlert } from "../utils/alerts";
 
 
 function Register() {
@@ -51,7 +51,7 @@ function Register() {
     try {
       setIsSubmitting(true);
 
-      await API.post("/auth/register", {
+      const response = await API.post("/auth/register", {
         firstname: form.firstname.trim(),
         surname: form.surname.trim(),
         email: form.email.trim(),
@@ -61,7 +61,12 @@ function Register() {
         password: form.password,
       });
 
-      showSuccessToast("Registration successful.");
+      await showSuccessAlert(
+        "Registration successful",
+        response.data.temporaryPin
+          ? `Your temporary PIN is ${response.data.temporaryPin}. Please change it in Settings.`
+          : "Please login to continue."
+      );
       navigate("/login");
     } catch (error) {
       const message =

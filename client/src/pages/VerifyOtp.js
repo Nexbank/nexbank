@@ -67,7 +67,7 @@ const handleVerify = async () => {
     
     // Small delay to ensure storage event is processed
     setTimeout(() => {
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     }, 50);
 
   } catch (err) {

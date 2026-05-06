@@ -45,8 +45,5 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
-  },
-  "overrides": {
-  "yaml": "^2.8.4"
-}
+  }
 }

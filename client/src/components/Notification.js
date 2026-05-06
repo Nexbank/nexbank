@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import axios from "axios";
 import { FiAlertCircle, FiAlertTriangle, FiCheckCircle, FiInfo, FiX } from "react-icons/fi";
+import API from "../services/api";
 
 const NotificationContext = createContext(null);
 
@@ -111,11 +111,6 @@ export function NotificationProvider({ children }) {
     return id;
   }, [removeNotification]);
 
-  const getAuthHeaders = useCallback(() => {
-    const token = window.localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const refreshNotifications = useCallback(async () => {
     if (!window.localStorage.getItem("token")) {
       setNotificationFeed([]);
@@ -124,9 +119,7 @@ export function NotificationProvider({ children }) {
 
     try {
       setIsLoadingNotifications(true);
-      const response = await axios.get("http://localhost:5000/api/notifications", {
-        headers: getAuthHeaders(),
-      });
+      const response = await API.get("/notifications");
       const nextNotifications = Array.isArray(response.data?.notifications)
         ? response.data.notifications
         : [];
@@ -138,7 +131,7 @@ export function NotificationProvider({ children }) {
     } finally {
       setIsLoadingNotifications(false);
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   const markNotificationRead = useCallback(
     async (notificationId) => {
@@ -146,26 +139,18 @@ export function NotificationProvider({ children }) {
         return null;
       }
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/notifications/${notificationId}/read`,
-        {},
-        { headers: getAuthHeaders() }
-      );
+      const response = await API.patch(`/notifications/${notificationId}/read`);
       await refreshNotifications();
       return response.data?.notification || null;
     },
-    [getAuthHeaders, refreshNotifications]
+    [refreshNotifications]
   );
 
   const markAllNotificationsRead = useCallback(async () => {
-    const response = await axios.patch(
-      "http://localhost:5000/api/notifications/read-all",
-      {},
-      { headers: getAuthHeaders() }
-    );
+    const response = await API.patch("/notifications/read-all");
     await refreshNotifications();
     return response.data;
-  }, [getAuthHeaders, refreshNotifications]);
+  }, [refreshNotifications]);
 
   useEffect(() => {
     const timeoutMap = timeoutMapRef.current;

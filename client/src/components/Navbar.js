@@ -92,13 +92,12 @@ function Navbar({
   );
 
   const handleNotificationsToggle = () => {
-    setIsNotificationsOpen((current) => {
-      const nextOpen = !current;
-      if (nextOpen) {
-        refreshNotifications().catch(() => {});
-      }
-      return nextOpen;
-    });
+    const nextOpen = !isNotificationsOpen;
+    setIsNotificationsOpen(nextOpen);
+
+    if (nextOpen) {
+      refreshNotifications().catch(() => {});
+    }
   };
 
   return (

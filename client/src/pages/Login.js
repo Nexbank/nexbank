@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { showErrorAlert, showSuccessToast } from "../utils/alerts";
+import { showErrorAlert } from "../utils/alerts";
 
 function Login() {
   return (
@@ -43,7 +43,7 @@ function LoginForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
 
 // Login.js - relevant part
 const handleLogin = async (e) => {

@@ -48,4 +48,31 @@ router.put("/update", authMiddleware, async (req, res) => {
   }
 });
 
+
+
+
+// TOGGLE 2FA (PROFILE SETTING)
+router.put("/toggle-2fa", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.twoFactorEnabled = !user.twoFactorEnabled;
+    await user.save();
+
+    res.json({
+      message: `2FA ${user.twoFactorEnabled ? "enabled" : "disabled"}`,
+      twoFactorEnabled: user.twoFactorEnabled,
+    });
+
+  } catch (error) {
+    console.error("Toggle 2FA error:", error);
+    res.status(500).json({ error: "Failed to update 2FA setting" });
+  }
+});
 module.exports = router;
+
+

@@ -18,10 +18,26 @@ const Profile = ({ search, setSearch, searchResults }) => {
     const fetchUser = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/profile/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+
+        const res = await axios.get(
+          "http://localhost:5000/api/profile/me",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setPreferences((prev) => ({
+  ...prev,
+  twoFactor: res.data.twoFactorEnabled || false,
+}));
+        setUserInfo(res.data);
+
+        // also sync edit form
+        setEditForm({
+          email: res.data.email,
+          phone: res.data.phone,
+          location: res.data.location,
         });
 
         setUserInfo(res.data);
@@ -49,13 +65,13 @@ const Profile = ({ search, setSearch, searchResults }) => {
     location: "",
   });
   const [isEditing, setIsEditing] = useState(false);
-
+  const [isToggling2FA, setIsToggling2FA] = useState(false);
   // State for preferences
   const [preferences, setPreferences] = useState({
-    twoFactor: true,
-    pushNotifications: true,
-    language: "English (ZA)",
-  });
+  twoFactor: false, // prevent UI flicker
+  pushNotifications: true,
+  language: "English (ZA)",
+});
   const activeAccounts = accounts.filter(
     (account) => account && account.status !== "closed" && account.isActive !== false
   );
@@ -142,27 +158,35 @@ const Profile = ({ search, setSearch, searchResults }) => {
     });
   };
 
-  const toggleTwoFactor = () => {
-    setPreferences((prev) => {
-      const nextValue = !prev.twoFactor;
+  const toggleTwoFactor = async () => {
+  if (isToggling2FA) return;
 
-      showNotification(
-        nextValue ? "warning" : "info",
-        nextValue
-          ? "Two-factor authentication has been enabled for stronger account protection."
-          : "Two-factor authentication has been disabled. Your account is less protected.",
-        {
-          title: nextValue ? "Security Upgraded" : "Security Changed",
-          duration: 6500,
-        }
-      );
+  setIsToggling2FA(true);
 
-      return {
-        ...prev,
-        twoFactor: nextValue,
-      };
-    });
-  };
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await axios.put(
+      "http://localhost:5000/api/profile/toggle-2fa",
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setPreferences((prev) => ({
+      ...prev,
+      twoFactor: res.data.twoFactorEnabled,
+    }));
+
+  } catch (error) {
+    alert("Failed to update 2FA setting");
+  } finally {
+    setIsToggling2FA(false);
+  }
+};
 
   const toggleNotifications = () => {
     setPreferences((prev) => {
@@ -347,12 +371,15 @@ const Profile = ({ search, setSearch, searchResults }) => {
                       {preferences.twoFactor ? "Enabled" : "Disabled"}
                     </span>
                   </div>
-                  <button
-                    onClick={toggleTwoFactor}
-                    className="preference-toggle"
+                  <div
+                    className={`cards-toggle 
+                      ${preferences.twoFactor ? "cards-toggle--on" : ""} 
+                      ${isToggling2FA ? "opacity-50 cursor-not-allowed" : ""}
+                    `}
+                    onClick={!isToggling2FA ? toggleTwoFactor : undefined}
                   >
-                    Toggle
-                  </button>
+                    <div className="cards-toggle-thumb"></div>
+                  </div>
                 </div>
 
                 <div className="profile-preference">

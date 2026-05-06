@@ -17,6 +17,7 @@ import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
 import Transfer from "./pages/Transfer";
 import PayBills from "./pages/PayBills";
+import VerifyOtp from "./pages/VerifyOtp";
 
 import { AccountProvider, useAccount } from "./context/AccountContext";
 import { NotificationProvider } from "./components/Notification";
@@ -108,6 +109,7 @@ function AppRoutes() {
       <Route path="/insights" element={<Insights search={search} setSearch={setSearch} searchResults={searchResults} />} />
       <Route path="/profile" element={<Profile search={search} setSearch={setSearch} searchResults={searchResults} />} />
       <Route path="/settings" element={<Settings search={search} setSearch={setSearch} searchResults={searchResults} />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
     </Routes>
   );
 }

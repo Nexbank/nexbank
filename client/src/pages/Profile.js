@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import { useNotification } from "../components/Notification";
 import { useAccount } from "../context/AccountContext";
 import { apiUrl } from "../config/api";
 
@@ -37,6 +38,12 @@ const Profile = ({ search, setSearch, searchResults }) => {
           location: res.data.location,
         });
 
+        setUserInfo(res.data);
+        setEditForm({
+          email: res.data.email || "",
+          phone: res.data.phone || "",
+          location: res.data.location || "",
+        });
       } catch (error) {
         console.error("Failed to fetch user", error);
       }
@@ -46,6 +53,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
   }, []);
   const navigate = useNavigate();
   const { accounts, selectedAccount } = useAccount();
+  const { showNotification } = useNotification();
 
   // State for user information
   const [userInfo, setUserInfo] = useState({});
@@ -87,8 +95,8 @@ const Profile = ({ search, setSearch, searchResults }) => {
     setIsEditing(true);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
     setEditForm((prev) => ({
       ...prev,
       [name]: value,
@@ -136,21 +144,59 @@ const Profile = ({ search, setSearch, searchResults }) => {
 };
 
   const handleCancel = () => {
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
     setIsEditing(false);
+    showNotification("info", "Profile changes were discarded.", {
+      title: "Edit Cancelled",
+      duration: 3200,
+    });
   };
 
   const toggleTwoFactor = () => {
-    setPreferences((prev) => ({
-      ...prev,
-      twoFactor: !prev.twoFactor,
-    }));
+    setPreferences((prev) => {
+      const nextValue = !prev.twoFactor;
+
+      showNotification(
+        nextValue ? "warning" : "info",
+        nextValue
+          ? "Two-factor authentication has been enabled for stronger account protection."
+          : "Two-factor authentication has been disabled. Your account is less protected.",
+        {
+          title: nextValue ? "Security Upgraded" : "Security Changed",
+          duration: 6500,
+        }
+      );
+
+      return {
+        ...prev,
+        twoFactor: nextValue,
+      };
+    });
   };
 
   const toggleNotifications = () => {
-    setPreferences((prev) => ({
-      ...prev,
-      pushNotifications: !prev.pushNotifications,
-    }));
+    setPreferences((prev) => {
+      const nextValue = !prev.pushNotifications;
+
+      showNotification(
+        nextValue ? "success" : "info",
+        nextValue
+          ? "Push notifications are enabled. You will receive account alerts again."
+          : "Push notifications are paused. Critical security alerts should still be reviewed regularly.",
+        {
+          title: nextValue ? "Notifications Enabled" : "Notifications Paused",
+        }
+      );
+
+      return {
+        ...prev,
+        pushNotifications: nextValue,
+      };
+    });
   };
 
   const handleLanguageChange = () => {
@@ -163,13 +209,17 @@ const Profile = ({ search, setSearch, searchResults }) => {
     ];
     const currentIndex = languages.indexOf(preferences.language);
     const nextIndex = (currentIndex + 1) % languages.length;
+    const nextLanguage = languages[nextIndex];
 
     setPreferences((prev) => ({
       ...prev,
-      language: languages[nextIndex],
+      language: nextLanguage,
     }));
+
+    showNotification("info", `App language switched to ${nextLanguage}.`, {
+      title: "Language Updated",
+    });
   };
-  // 
 
   return (
     <div className="app">
@@ -178,17 +228,14 @@ const Profile = ({ search, setSearch, searchResults }) => {
       <div className="main">
         <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
 
-        {/* 🔥 THIS FIXES YOUR SCROLL ISSUE */}
         <div className="content">
           <div className="profile-container">
-
-            {/* Header */}
             <div className="profile-header">
               <button
                 onClick={handleBackToDashboard}
                 className="back-btn"
               >
-                ←
+                Back
               </button>
 
               <div className="profile-avatar">
@@ -216,10 +263,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="profile-content">
-
-              {/* Personal Info */}
               <div className="profile-section">
                 <h2>Personal Information</h2>
 
@@ -301,7 +345,6 @@ const Profile = ({ search, setSearch, searchResults }) => {
                 )}
               </div>
 
-              {/* Preferences */}
               <div className="profile-section">
                 <h2>Account Preferences</h2>
 
@@ -310,7 +353,11 @@ const Profile = ({ search, setSearch, searchResults }) => {
                     <span className="preference-name">
                       Two-Factor Authentication
                     </span>
-                    <span className={`preference-status ${preferences.twoFactor ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.twoFactor ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.twoFactor ? "Enabled" : "Disabled"}
                     </span>
                   </div>
@@ -327,7 +374,11 @@ const Profile = ({ search, setSearch, searchResults }) => {
                     <span className="preference-name">
                       Push Notifications
                     </span>
-                    <span className={`preference-status ${preferences.pushNotifications ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.pushNotifications ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.pushNotifications ? "Enabled" : "Disabled"}
                     </span>
                   </div>
@@ -354,7 +405,6 @@ const Profile = ({ search, setSearch, searchResults }) => {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>

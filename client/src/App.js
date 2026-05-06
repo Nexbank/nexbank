@@ -19,6 +19,7 @@ import Transfer from "./pages/Transfer";
 import PayBills from "./pages/PayBills";
 
 import { AccountProvider, useAccount } from "./context/AccountContext";
+import { NotificationProvider } from "./components/Notification";
 
 const actionItems = [
   { id: "deposit", label: "Make a Deposit", path: "/deposit", keywords: ["deposit", "add money", "cash in"] },
@@ -113,11 +114,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AccountProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AccountProvider>
+    <NotificationProvider>
+      <AccountProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AccountProvider>
+    </NotificationProvider>
   );
 }
 

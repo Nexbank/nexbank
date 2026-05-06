@@ -1,6 +1,8 @@
 const express = require("express");
 const User = require("../models/User");
+const Transaction = require("../models/Transaction");
 const authMiddleware = require("../middleware/authMiddleware");
+const { createNotification } = require("../services/notificationService");
 const {
   getBankingSummary,
   getUserAccounts,
@@ -34,6 +36,86 @@ const WITHDRAW_CATEGORIES = [
 const DEPOSIT_CATEGORIES = ["Income", "Savings", "Refund", "Gift"];
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
+const formatAmount = (value) => `R${Number(value || 0).toFixed(2)}`;
+
+async function notifyForTransaction(userId, transaction) {
+  if (!transaction) {
+    return;
+  }
+
+  const metadata = {
+    event: `${transaction.type}_${transaction.status || "created"}`,
+    transactionId: transaction._id,
+    accountId: transaction.accountId,
+    amount: transaction.amount,
+    fee: transaction.fee || 0,
+    status: transaction.status,
+    route: transaction.metadata?.route || "",
+  };
+
+  if (transaction.type === "deposit" && transaction.status === "completed") {
+    await createNotification(userId, {
+      title: "Deposit completed",
+      message: `${formatAmount(transaction.amount)} was deposited into your account.`,
+      type: "transaction",
+      metadata,
+    });
+  } else if (transaction.type === "withdrawal" && transaction.status === "completed") {
+    await createNotification(userId, {
+      title: "Withdrawal completed",
+      message: `${formatAmount(transaction.amount)} was withdrawn from your account.`,
+      type: "transaction",
+      metadata,
+    });
+  } else if (transaction.type === "transfer" && transaction.metadata?.route === "voucher") {
+    await createNotification(userId, {
+      title: "Cash send created",
+      message: `A cash send for ${formatAmount(transaction.amount)} was created successfully.`,
+      type: "transaction",
+      metadata: { ...metadata, event: "cash_send_created" },
+    });
+  } else if (transaction.type === "transfer" && transaction.status === "completed") {
+    await createNotification(userId, {
+      title: "Transfer completed",
+      message: `${formatAmount(transaction.amount)} was transferred successfully.`,
+      type: "transaction",
+      metadata,
+    });
+  } else if (transaction.type === "bill" && transaction.status === "completed") {
+    await createNotification(userId, {
+      title: "Bill payment completed",
+      message: `${formatAmount(transaction.amount)} was paid to ${transaction.billerName || "your biller"}.`,
+      type: "transaction",
+      metadata,
+    });
+  } else if (transaction.type === "fee" && transaction.metadata?.feeType === "monthly_account_fee") {
+    await createNotification(userId, {
+      title: "Monthly account fee applied",
+      message: `${formatAmount(transaction.amount)} monthly account fee was applied.`,
+      type: "account",
+      metadata: { ...metadata, event: "monthly_account_fee_applied" },
+    });
+  }
+
+  const linkedTransactionId = transaction.metadata?.linkedTransactionId;
+  if (transaction.type === "transfer" && transaction.metadata?.route === "internal" && linkedTransactionId) {
+    const linkedTransaction = await Transaction.findById(linkedTransactionId).lean();
+    if (linkedTransaction?.userId && String(linkedTransaction.userId) !== String(userId)) {
+      await createNotification(linkedTransaction.userId, {
+        title: "Internal transfer received",
+        message: `${formatAmount(linkedTransaction.amount)} was received from another NexBank account.`,
+        type: "transaction",
+        metadata: {
+          event: "internal_transfer_received",
+          transactionId: linkedTransaction._id,
+          accountId: linkedTransaction.accountId,
+          sourceTransactionId: transaction._id,
+          transferGroupId: linkedTransaction.metadata?.transferGroupId || "",
+        },
+      });
+    }
+  }
+}
 
 function formatTransaction(transaction) {
   const amount = Number(transaction.amount || 0);
@@ -239,6 +321,7 @@ router.post("/transactions", async (req, res) => {
       billerName: req.body.billerName || "",
       dynamicFields: req.body.dynamicFields || {},
     });
+    await notifyForTransaction(req.user.userId, transaction);
 
     const summary = await loadSummary(req.user.userId);
     res.status(201).json({
@@ -320,6 +403,16 @@ router.post("/accounts", async (req, res) => {
       name: req.body.name,
       category: req.body.category,
     });
+    await createNotification(req.user.userId, {
+      title: "Account created",
+      message: `${account.name || "Your account"} was created successfully.`,
+      type: "account",
+      metadata: {
+        event: "account_created",
+        accountId: account._id,
+        accountType: account.accountType,
+      },
+    });
     // 🔹 Banking Logic
     // Return the refreshed summary immediately so the frontend never has to invent account state after creation.
     const summary = await loadSummary(req.user.userId);
@@ -343,6 +436,16 @@ router.patch("/accounts/:id/close", async (req, res) => {
     // 🔹 Safety / Validation
     // Closing stays backend-owned because it can freeze linked cards and remove the account from active flows in one operation.
     const account = await closeAccount(req.user.userId, req.params.id);
+    await createNotification(req.user.userId, {
+      title: "Account closed",
+      message: `${account.name || "Your account"} was closed successfully.`,
+      type: "account",
+      metadata: {
+        event: "account_closed",
+        accountId: account._id,
+        accountType: account.accountType,
+      },
+    });
     const summary = await loadSummary(req.user.userId);
 
     res.json({
@@ -372,6 +475,7 @@ router.post("/accounts/:id/apply-monthly-fee", async (req, res) => {
     // 🔹 Future-ready
     // Monthly fees are real ledger transactions now, even though billing automation is intentionally deferred.
     const transaction = await applyMonthlyAccountFee(req.user.userId, req.params.id);
+    await notifyForTransaction(req.user.userId, transaction);
     const summary = await loadSummary(req.user.userId);
 
     res.status(201).json({
@@ -413,6 +517,15 @@ router.get("/cards/:id/details", async (req, res) => {
   try {
     await ensureUserExists(req.user.userId);
     const details = await getCardDetails(req.user.userId, req.params.id);
+    await createNotification(req.user.userId, {
+      title: "Card details viewed",
+      message: "Your card details were viewed after PIN verification.",
+      type: "card",
+      metadata: {
+        event: "card_details_viewed",
+        cardId: req.params.id,
+      },
+    });
     res.json({ details });
   } catch (error) {
     console.error(error);
@@ -428,6 +541,16 @@ router.post("/cards", async (req, res) => {
     // 🔹 Banking Logic
     // Card issuance is still subject to backend account rules so unsupported products cannot create cards through UI workarounds.
     const card = await createCard(req.user.userId, req.body);
+    await createNotification(req.user.userId, {
+      title: "Virtual card created",
+      message: "Your virtual card was created successfully.",
+      type: "card",
+      metadata: {
+        event: "virtual_card_created",
+        cardId: card._id,
+        accountId: card.accountId,
+      },
+    });
     const summary = await loadSummary(req.user.userId);
 
     res.status(201).json({
@@ -450,6 +573,18 @@ router.patch("/cards/:id", async (req, res) => {
   try {
     await ensureUserExists(req.user.userId);
     const card = await updateCard(req.user.userId, req.params.id, req.body);
+    if (String(req.body.status || "").trim().toLowerCase() === "active") {
+      await createNotification(req.user.userId, {
+        title: "Card unblocked",
+        message: "Your card was unblocked successfully.",
+        type: "card",
+        metadata: {
+          event: "card_unblocked",
+          cardId: card._id,
+          accountId: card.accountId,
+        },
+      });
+    }
     const summary = await loadSummary(req.user.userId);
 
     res.json({
@@ -469,6 +604,16 @@ router.post("/cards/:id/freeze", async (req, res) => {
   try {
     await ensureUserExists(req.user.userId);
     const card = await freezeCard(req.user.userId, req.params.id);
+    await createNotification(req.user.userId, {
+      title: "Card blocked",
+      message: "Your card was blocked successfully.",
+      type: "card",
+      metadata: {
+        event: "card_blocked",
+        cardId: card._id,
+        accountId: card.accountId,
+      },
+    });
     const summary = await loadSummary(req.user.userId);
 
     res.json({
@@ -488,6 +633,16 @@ router.post("/cards/:id/replace", async (req, res) => {
   try {
     await ensureUserExists(req.user.userId);
     const replacement = await replaceCard(req.user.userId, req.params.id);
+    await createNotification(req.user.userId, {
+      title: "Card replaced",
+      message: "Your replacement card was issued successfully.",
+      type: "card",
+      metadata: {
+        event: "card_replaced",
+        oldCardId: replacement.oldCard?._id,
+        newCardId: replacement.newCard?._id,
+      },
+    });
     const summary = await loadSummary(req.user.userId);
 
     res.json({
@@ -536,6 +691,7 @@ router.post("/deposit", async (req, res) => {
         accountNumber: req.body.sourceAccountNumber || "",
       },
     });
+    await notifyForTransaction(req.user.userId, transaction);
 
     const summary = await loadSummary(req.user.userId);
     res.status(201).json({
@@ -586,6 +742,7 @@ router.post("/withdraw", async (req, res) => {
         accountType: req.body.accountType || "",
       },
     });
+    await notifyForTransaction(req.user.userId, transaction);
 
     const summary = await loadSummary(req.user.userId);
     res.status(201).json({

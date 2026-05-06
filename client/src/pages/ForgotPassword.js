@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useNotification } from "../components/Notification";
 import API from "../services/api";
 
 const recoverySteps = [
@@ -136,12 +137,13 @@ function ForgotPasswordGuide({ onStart }) {
 }
 
 function StepID({ next }) {
+  const { showNotification } = useNotification();
   const [id, setId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNext = async () => {
     if (id.length !== 13 || Number.isNaN(Number(id))) {
-      alert("SA ID must be exactly 13 digits.");
+      showNotification("error", "SA ID must be exactly 13 digits.", { title: "Error" });
       return;
     }
 
@@ -151,10 +153,10 @@ function StepID({ next }) {
         saIdNumber: id,
       });
 
-      alert("ID verified successfully!");
+      showNotification("success", "ID verified successfully!", { title: "Success" });
       next();
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to verify identity");
+      showNotification("error", err.response?.data?.error || "Failed to verify identity", { title: "Error" });
     } finally {
       setIsLoading(false);
     }
@@ -194,6 +196,7 @@ function StepID({ next }) {
 }
 
 function StepEmail({ next, setEmailGlobal }) {
+  const { showNotification } = useNotification();
   const [email, setEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
@@ -201,7 +204,7 @@ function StepEmail({ next, setEmailGlobal }) {
 
   const sendOTP = async () => {
     if (!email || !email.includes("@")) {
-      alert("Please enter a valid email address.");
+      showNotification("error", "Please enter a valid email address.", { title: "Error" });
       return;
     }
 
@@ -211,10 +214,10 @@ function StepEmail({ next, setEmailGlobal }) {
         email: email,
       });
       
-      alert(`OTP sent to ${email}`);
+      showNotification("info", `OTP sent to ${email}`, { title: "Recovery" });
       setOtpSent(true);
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to send OTP");
+      showNotification("error", err.response?.data?.error || "Failed to send OTP", { title: "Error" });
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +225,7 @@ function StepEmail({ next, setEmailGlobal }) {
 
   const handleVerify = async () => {
     if (!otp || otp.length !== 6) {
-      alert("Please enter the 6-digit OTP.");
+      showNotification("error", "Please enter the 6-digit OTP.", { title: "Error" });
       return;
     }
 
@@ -234,10 +237,10 @@ function StepEmail({ next, setEmailGlobal }) {
       });
       
       setEmailGlobal(email);
-      alert("Email verified successfully!");
+      showNotification("success", "Email verified successfully!", { title: "Success" });
       next();
     } catch (err) {
-      alert(err.response?.data?.error || "Invalid or expired OTP");
+      showNotification("error", err.response?.data?.error || "Invalid or expired OTP", { title: "Error" });
     } finally {
       setIsLoading(false);
     }
@@ -322,18 +325,19 @@ function StepEmail({ next, setEmailGlobal }) {
 
 function StepPassword({ reset, email }) {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleReset = async () => {
     if (pass.length < 6) {
-      alert("Password must be at least 6 characters.");
+      showNotification("error", "Password must be at least 6 characters.", { title: "Error" });
       return;
     }
 
     if (pass !== confirm) {
-      alert("Passwords do not match.");
+      showNotification("error", "Passwords do not match.", { title: "Error" });
       return;
     }
 
@@ -344,11 +348,11 @@ function StepPassword({ reset, email }) {
         newPassword: pass,
       });
 
-      alert("Password reset successful! Please login with your new password.");
+      showNotification("success", "Password reset successful! Please login with your new password.", { title: "Success" });
       reset();
       navigate("/login");
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to reset password");
+      showNotification("error", err.response?.data?.error || "Failed to reset password", { title: "Error" });
     } finally {
       setIsLoading(false);
     }

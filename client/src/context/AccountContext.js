@@ -191,7 +191,18 @@ const normalizeCardType = (value = "") => {
   return "";
 };
 
-const getStoredUser = () => safeJsonParse(window.localStorage.getItem("user"));
+const sanitizeUser = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  const safeUser = { ...user };
+  delete safeUser.password;
+  delete safeUser.pinHash;
+  return safeUser;
+};
+
+const getStoredUser = () => sanitizeUser(safeJsonParse(window.localStorage.getItem("user")));
 
 const getUserStorageId = (user = getStoredUser()) => user?._id || user?.email || "guest";
 
@@ -278,12 +289,20 @@ const normalizeTransaction = (transaction, index) => {
     accountId: transaction?.accountId || "",
     cardId: transaction?.cardId || transaction?.metadata?.cardId || null,
     amount: roundCurrency(transaction?.amount),
+    fee: roundCurrency(transaction?.fee),
+    impactAmount:
+      typeof transaction?.impactAmount === "number"
+        ? roundCurrency(transaction.impactAmount)
+        : undefined,
     direction: transaction?.direction || "debit",
     type: transaction?.type || "transfer",
     status: transaction?.status || "completed",
+    category: transaction?.category || "",
     reference: transaction?.reference || "",
     description: transaction?.description || humanizeValue(transaction?.type || "transaction"),
     metadata: transaction?.metadata || {},
+    billerName: transaction?.billerName || "",
+    dynamicFields: transaction?.dynamicFields || {},
     createdAt: transaction?.createdAt || toIsoDate(Date.now() - index * DAY_IN_MS),
   };
 };
@@ -515,6 +534,7 @@ export function AccountProvider({ children }) {
   const [cards, setCards] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [cardDetailsById, setCardDetailsById] = useState({});
+  const [user, setUser] = useState(() => getStoredUser());
   const [isAuthenticated, setIsAuthenticated] = useState(() => hasAuthToken());
   const [selectedAccountId, setSelectedAccountId] = useState(() =>
     readSelectedAccountId(getUserStorageId())
@@ -564,11 +584,39 @@ export function AccountProvider({ children }) {
     setCards([]);
     setTransactions([]);
     setCardDetailsById({});
+    setUser(null);
     setSelectedAccountId(null);
     setIsAuthenticated(false);
     setIsLoading(false);
     setError(message);
   }, []);
+
+  const updateStoredUser = useCallback((nextUser) => {
+    const safeUser = sanitizeUser(nextUser);
+
+    if (!safeUser) {
+      window.localStorage.removeItem("user");
+      setUser(null);
+      return null;
+    }
+
+    window.localStorage.setItem("user", JSON.stringify(safeUser));
+    setUser(safeUser);
+    return safeUser;
+  }, []);
+
+  const refreshUserProfile = useCallback(async () => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    try {
+      const response = await API.get("/profile/me");
+      return updateStoredUser(response.data);
+    } catch {
+      return getStoredUser();
+    }
+  }, [isAuthenticated, updateStoredUser]);
 
   const refreshSummary = useCallback(async () => {
     if (!isAuthenticated) {
@@ -609,6 +657,10 @@ export function AccountProvider({ children }) {
   }, [refreshSummary]);
 
   useEffect(() => {
+    refreshUserProfile().catch(() => {});
+  }, [refreshUserProfile]);
+
+  useEffect(() => {
     const handleAuthChanged = () => {
       const nextIsAuthenticated = hasAuthToken();
       setIsAuthenticated(nextIsAuthenticated);
@@ -619,14 +671,16 @@ export function AccountProvider({ children }) {
       }
 
       const userId = getUserStorageId();
+      setUser(getStoredUser());
       setSelectedAccountId(readSelectedAccountId(userId));
       setError("");
+      refreshUserProfile().catch(() => {});
       refreshSummary().catch(() => {});
     };
 
     window.addEventListener("nexbank-auth-changed", handleAuthChanged);
     return () => window.removeEventListener("nexbank-auth-changed", handleAuthChanged);
-  }, [applySummary, refreshSummary, resetState]);
+  }, [applySummary, refreshSummary, refreshUserProfile, resetState]);
 
   const allAccounts = useMemo(() => accountRecords, [accountRecords]);
   const accounts = useMemo(
@@ -1130,6 +1184,7 @@ export function AccountProvider({ children }) {
       accounts,
       allAccounts,
       closedAccounts,
+      user,
       isAuthenticated,
       selectedAccount,
       selectedAccountId,
@@ -1143,6 +1198,8 @@ export function AccountProvider({ children }) {
       dashboardSummary,
       insightsSummary,
       refreshSummary,
+      refreshUserProfile,
+      updateStoredUser,
       selectAccount: (accountId) => {
         const userId = getUserStorageId();
         setSelectedAccountId(accountId);
@@ -1181,6 +1238,7 @@ export function AccountProvider({ children }) {
       isLoading,
       payBill,
       refreshSummary,
+      refreshUserProfile,
       replaceCard,
       selectedAccount,
       selectedAccountId,
@@ -1189,6 +1247,8 @@ export function AccountProvider({ children }) {
       settleTransaction,
       transferFunds,
       updateCard,
+      updateStoredUser,
+      user,
       withdrawFunds,
     ]
   );

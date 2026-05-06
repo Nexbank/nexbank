@@ -19,6 +19,21 @@ const userSchema = new mongoose.Schema({
     required: true
   },
 
+  pinHash: {
+    type: String,
+    select: false
+  },
+
+  pinUpdatedAt: {
+    type: Date,
+    default: null
+  },
+
+  mustChangePin: {
+    type: Boolean,
+    default: false
+  },
+
   firstname: {
     type: String,
     trim: true

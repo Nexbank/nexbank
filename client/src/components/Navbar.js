@@ -1,28 +1,27 @@
 import { useMemo, useState } from "react";
 import { FiBell, FiSearch } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { useNotification } from "./Notification";
 import { formatCurrency } from "../utils/currency";
 
-const defaultNotifications = [
-  {
-    id: 1,
-    title: "Salary received",
-    message: "Your monthly salary has been deposited.",
-    time: "2m ago",
-  },
-  {
-    id: 2,
-    title: "Card payment",
-    message: "Your card was used for a purchase of R245.00.",
-    time: "1h ago",
-  },
-  {
-    id: 3,
-    title: "Security alert",
-    message: "A new login was detected on your account.",
-    time: "Today",
-  },
-];
+function formatNotificationTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 1) return "Now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffMinutes < 24 * 60) return `${Math.floor(diffMinutes / 60)}h ago`;
+
+  return date.toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+  });
+}
 
 function Navbar({
   userName,
@@ -35,6 +34,14 @@ function Navbar({
 }) {
   const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const {
+    notificationFeed,
+    unreadCount,
+    isLoadingNotifications,
+    refreshNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+  } = useNotification();
   const storedUser = (() => {
     try {
       return JSON.parse(window.localStorage.getItem("user") || "null");
@@ -72,6 +79,26 @@ function Navbar({
   const handleResultSelect = (path) => {
     setSearch?.("");
     navigate(path);
+  };
+
+  const recentNotifications = useMemo(
+    () =>
+      notificationFeed.slice(0, 8).map((notification) => ({
+        ...notification,
+        id: notification._id || notification.id,
+        timeLabel: formatNotificationTime(notification.createdAt),
+      })),
+    [notificationFeed]
+  );
+
+  const handleNotificationsToggle = () => {
+    setIsNotificationsOpen((current) => {
+      const nextOpen = !current;
+      if (nextOpen) {
+        refreshNotifications().catch(() => {});
+      }
+      return nextOpen;
+    });
   };
 
   return (
@@ -155,41 +182,86 @@ function Navbar({
             aria-label="Notifications"
             aria-expanded={isNotificationsOpen}
             aria-haspopup="dialog"
-            onClick={() => setIsNotificationsOpen((current) => !current)}
+            onClick={handleNotificationsToggle}
           >
             <FiBell size={20} />
-            <span className="navbar__notification-dot" aria-hidden="true" />
+            {unreadCount > 0 && (
+              <span className="navbar__notification-badge" aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           {isNotificationsOpen && (
             <div className="navbar__notification-panel" role="dialog" aria-label="Notifications">
               <div className="navbar__notification-header">
                 <span className="navbar__notification-title">Notifications</span>
-                <button
-                  type="button"
-                  className="navbar__notification-close"
-                  onClick={() => setIsNotificationsOpen(false)}
-                >
-                  Close
-                </button>
+                <div className="navbar__notification-actions">
+                  {unreadCount > 0 ? (
+                    <button
+                      type="button"
+                      className="navbar__notification-close"
+                      onClick={() => markAllNotificationsRead().catch(() => {})}
+                    >
+                      Mark all read
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="navbar__notification-close"
+                    onClick={() => setIsNotificationsOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
 
               <div className="navbar__notification-list">
-                {defaultNotifications.map((notification) => (
-                  <article key={notification.id} className="navbar__notification-item">
+                {isLoadingNotifications ? (
+                  <article className="navbar__notification-item navbar__notification-item--empty">
                     <div className="navbar__notification-item-head">
-                      <span className="navbar__notification-item-title">
-                        {notification.title}
-                      </span>
-                      <span className="navbar__notification-time">
-                        {notification.time}
-                      </span>
+                      <span className="navbar__notification-item-title">Loading</span>
+                    </div>
+                    <p className="navbar__notification-message">Fetching your latest activity.</p>
+                  </article>
+                ) : recentNotifications.length > 0 ? (
+                  recentNotifications.map((notification) => (
+                    <article
+                      key={notification.id}
+                      className={`navbar__notification-item${
+                        notification.isRead ? "" : " navbar__notification-item--unread"
+                      }`}
+                    >
+                      <div className="navbar__notification-item-head">
+                        <span className="navbar__notification-item-title">
+                          {notification.title}
+                        </span>
+                        <span className="navbar__notification-time">
+                          {notification.timeLabel}
+                        </span>
+                      </div>
+                      <p className="navbar__notification-message">{notification.message}</p>
+                      {!notification.isRead ? (
+                        <button
+                          type="button"
+                          className="navbar__notification-read"
+                          onClick={() => markNotificationRead(notification.id).catch(() => {})}
+                        >
+                          Mark as read
+                        </button>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <article className="navbar__notification-item navbar__notification-item--empty">
+                    <div className="navbar__notification-item-head">
+                      <span className="navbar__notification-item-title">All clear</span>
                     </div>
                     <p className="navbar__notification-message">
-                      {notification.message}
+                      New account activity and security updates will appear here.
                     </p>
                   </article>
-                ))}
+                )}
               </div>
             </div>
           )}

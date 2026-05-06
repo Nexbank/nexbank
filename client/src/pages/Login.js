@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { showErrorAlert, showSuccessToast } from "../utils/alerts";
+
 
 function Login() {
   return (
@@ -43,41 +43,42 @@ function LoginForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+// Login.js - relevant part
+const handleLogin = async (e) => {
+  e.preventDefault();
 
-    if (!email || !password) {
-      await showErrorAlert("Missing details", "Please enter your email and password.");
+  try {
+    const res = await API.post("/auth/login", { email, password });
+
+    // CASE 1: 2FA REQUIRED
+    if (res.data.twoFactorRequired) {
+      navigate("/verify-otp", {
+        state: {
+          email: res.data.email || email, // fallback safety
+        },
+      });
       return;
     }
 
-    try {
-      setIsSubmitting(true);
+    // CASE 2: NORMAL LOGIN (NO 2FA)
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      const response = await API.post("/auth/login", {
-        email: email.trim(),
-        password,
-      });
+    window.dispatchEvent(new Event("storage"));
+    navigate("/dashboard");
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("userId", response.data.user._id);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
-      window.dispatchEvent(new Event("nexbank-auth-changed"));
-      showSuccessToast("Login successful.");
-      navigate("/dashboard");
-    } catch (error) {
-      const message =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        "Login failed. Please try again.";
+  } catch (error) {
+    console.error("Login error:", error);
 
-      await showErrorAlert("Login failed", message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    // Optional: better error handling
+    const message =
+      error?.response?.data?.message || "Login failed. Try again.";
+
+    alert(message);
+  }
+};
 
   return (
     <form onSubmit={handleLogin}>

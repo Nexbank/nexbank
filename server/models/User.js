@@ -65,6 +65,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+// added this for the 2-factor authentication
+    twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
  
   isActive: {
     type: Boolean,

@@ -3,6 +3,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import { apiUrl } from "../config/api";
 
 const DEFAULT_SETTINGS_STATE = {
   biometric: false,
@@ -201,7 +202,7 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/settings/${userId}`,
+          apiUrl(`/settings/${userId}`),
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -236,7 +237,7 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
     try {
       await axios.put(
-        `http://localhost:5000/api/settings/${userId}`,
+        apiUrl(`/settings/${userId}`),
         {
           twoFactor: updatedSettings.biometric,
           pushNotifications: updatedSettings.txAlerts,

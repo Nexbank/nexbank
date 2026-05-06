@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import axios from "axios";
 import { useAccount } from "../context/AccountContext";
+import { apiUrl } from "../config/api";
 
 const humanizeValue = (value = "") =>
   String(value)
@@ -19,7 +20,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
         const token = localStorage.getItem("token");
 
         const res = await axios.get(
-          "http://localhost:5000/api/profile/me",
+          apiUrl("/profile/me"),
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -100,7 +101,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
 
     // Include email in the update
     const res = await axios.put(
-      "http://localhost:5000/api/profile/update",
+      apiUrl("/profile/update"),
       {
         email: editForm.email,     // Add this
         phone: editForm.phone,

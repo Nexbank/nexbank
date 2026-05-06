@@ -1,51 +1,75 @@
 name: NexBank CI Pipeline
- 
+
 on:
-  pull_request:
-    branches: [development, main]
- 
   push:
-    branches: [development]
- 
+    branches: ["**"]
+  pull_request:
+    branches: [main, development]
+
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
- 
+
     steps:
-      # 1. Checkout code
       - name: Checkout repository
-        uses: actions/checkout@v3
- 
-      # 2. Setup Node.js
-      - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
- 
-      # 3. Install root dependencies (if any)
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+            server/package-lock.json
+
       - name: Install root dependencies
-        run: npm install || true
- 
-      # 4. Install backend dependencies
-      - name: Install server dependencies
-        run: |
-          cd server
-          npm install
- 
-      # 5. Install frontend dependencies
+        run: npm ci
+
       - name: Install client dependencies
-        run: |
-          cd client
-          npm install
- 
-      # 6. Build frontend
-      - name: Build React app
-        run: |
-          cd client
-          npm run build
- 
-      # 7. Check backend (basic run check)
-      - name: Check backend startup
-        run: |
-          cd server
-          node -e "console.log('Backend check passed')"
+        run: npm ci
+        working-directory: client
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Run frontend tests
+        run: npm test -- --runInBand --watchAll=false
+        working-directory: client
+        env:
+          CI: true
+
+      - name: Run backend tests
+        run: npm test
+        working-directory: server
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: client
+        env:
+          CI: true
+          REACT_APP_API_BASE_URL: /api
+
+  container-validation:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t nexbank-backend:ci ./server
+
+      - name: Build frontend image
+        run: docker build --build-arg REACT_APP_API_BASE_URL=/api -t nexbank-frontend:ci ./client
+
+      - name: Validate Kubernetes manifests
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Dry-run manifests
+        run: kubectl apply --dry-run=client -f k8s/

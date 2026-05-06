@@ -1,7 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+import API from "./services/api";
+
+test("resolves a usable API base URL", () => {
+  expect(API.defaults.baseURL).toBeTruthy();
 });

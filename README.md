@@ -184,3 +184,67 @@ npm install react-bootstrap bootstrap
 
 # Run development server
 npm start
+
+## Week 3 Deployment & Automation
+
+### Docker
+
+```bash
+docker compose up --build
+```
+
+Frontend: `http://localhost:3000`  
+Backend health: `http://localhost:5000/healthz`
+
+### GitHub Actions
+
+The pipeline in `.github/workflows/ci.yml` now runs on every push and pull request. It:
+
+- installs root, client, and server dependencies
+- runs frontend and backend tests
+- builds the React production bundle
+- validates the backend and frontend Docker images
+- dry-runs the Kubernetes manifests
+
+### Kubernetes
+
+Apply the manifests from the repo root:
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/mongodb.yaml
+kubectl apply -f k8s/backend.yaml
+kubectl apply -f k8s/frontend.yaml
+```
+
+For Minikube:
+
+```bash
+docker build -t nexbank-backend:latest ./server
+docker build --build-arg REACT_APP_API_BASE_URL=/api -t nexbank-frontend:latest ./client
+minikube image load nexbank-backend:latest
+minikube image load nexbank-frontend:latest
+minikube service frontend -n nexbank --url
+```
+
+### Scaling & Health Checks
+
+```bash
+kubectl get pods -n nexbank
+kubectl get svc -n nexbank
+kubectl logs deployment/backend -n nexbank
+kubectl scale deployment backend --replicas=3 -n nexbank
+kubectl scale deployment frontend --replicas=3 -n nexbank
+kubectl rollout status deployment/backend -n nexbank
+kubectl rollout status deployment/frontend -n nexbank
+```
+
+### Evidence To Capture
+
+For the Week 3 submission, capture:
+
+- `docker compose up --build` logs
+- `kubectl get pods -n nexbank`
+- `kubectl get svc -n nexbank`
+- `kubectl logs deployment/backend -n nexbank`
+- scaling output after increasing frontend/backend replicas

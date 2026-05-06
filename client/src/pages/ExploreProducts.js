@@ -33,7 +33,7 @@ const productPriority = (product) => {
 
 export default function ExploreProducts({ search, setSearch, searchResults }) {
   const navigate = useNavigate();
-  const { accounts, createAccount, isLoading } = useAccount();
+  const { accounts, selectedAccount, createAccount, isLoading, isCreatingAccount } = useAccount();
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [isSubmittingProductId, setIsSubmittingProductId] = useState("");
@@ -94,11 +94,17 @@ export default function ExploreProducts({ search, setSearch, searchResults }) {
     // CTA order is explicit: owned products route to Accounts, real account products open accounts, future products stay informational.
 
     if (isOwned) {
-      return { label: "View Account", action: "view_account", disabled: false, status };
+      const isSelected = selectedAccount?.accountType === product.accountType;
+      return {
+        label: isSelected ? "Selected Account" : "Already opened",
+        action: "already_owned",
+        disabled: true,
+        status,
+      };
     }
 
     if (product.productKind === "account" && status === "available_now") {
-      return { label: "Open Account", action: "open_account", disabled: false, status };
+      return { label: "Create Account", action: "open_account", disabled: false, status };
     }
 
     if (status === "coming_soon") {
@@ -111,12 +117,11 @@ export default function ExploreProducts({ search, setSearch, searchResults }) {
   const handleProductAction = async (product) => {
     const cta = resolveProductAction(product);
 
-    if (cta.action === "view_account") {
-      navigate("/accounts", { state: { accountType: product.accountType } });
-      return;
-    }
-
     if (cta.action === "open_account") {
+      if (isSubmittingProductId || isCreatingAccount) {
+        return;
+      }
+
       try {
         setIsSubmittingProductId(product.id);
         setError("");
@@ -213,9 +218,6 @@ export default function ExploreProducts({ search, setSearch, searchResults }) {
                     return (
                       <article key={product.id} className="products-card">
                         <div className="products-card__top">
-                          <span className="accounts-badge accounts-badge--type">
-                            {product.category}
-                          </span>
                           <span
                             className={`accounts-badge ${
                               status === "available_now"
@@ -239,21 +241,13 @@ export default function ExploreProducts({ search, setSearch, searchResults }) {
                           <strong>{formatCurrency(product.monthlyFee)}</strong>
                         </div>
 
-                        <div className="products-card__benefits">
-                          {product.benefits.map((benefit) => (
-                            <span key={benefit} className="accounts-badge accounts-badge--available">
-                              {benefit}
-                            </span>
-                          ))}
-                        </div>
-
                         <button
                           type="button"
                           className={`action-button ${
                             cta.disabled ? "action-button--ghost" : "action-button--primary"
-                          } action-button--full`}
+                          } ${isSubmitting ? "action-button--loading" : ""} action-button--full`}
                           onClick={() => handleProductAction(product)}
-                          disabled={cta.disabled || isSubmitting}
+                          disabled={cta.disabled || isSubmitting || isCreatingAccount}
                         >
                           {isSubmitting ? "Opening product..." : cta.label}
                         </button>

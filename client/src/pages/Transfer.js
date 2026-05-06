@@ -36,7 +36,7 @@ export default function Transfer({ search, setSearch, searchResults }) {
   const selectableAccounts = accounts.filter(Boolean);
   const selectedAccountRules = selectedAccount?.rules || null;
   // 🔹 Banking Logic
-  // Transfer permissions and daily limits are account-type rules, not UI-only assumptions.
+  // Transfer permissions are account-type rules, not UI-only assumptions.
   const canTransfer = selectedAccountRules?.allowsTransfers !== false;
   const selectedRoute = useMemo(
     () => transferOptions.find((option) => option.id === form.route) || transferOptions[0],

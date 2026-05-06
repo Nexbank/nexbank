@@ -66,7 +66,7 @@ const handleLogin = async (e) => {
     localStorage.setItem("token", res.data.token);
     localStorage.setItem("user", JSON.stringify(res.data.user));
 
-    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("nexbank-auth-changed"));
     navigate("/dashboard");
 
   } catch (error) {

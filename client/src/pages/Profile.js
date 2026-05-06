@@ -233,13 +233,14 @@ const Profile = ({ search, setSearch, searchResults }) => {
   };
 
   return (
-    <div className="app">
+    <div className="dashboard-page">
       <Sidebar />
 
-      <div className="main">
+      <div className="dashboard-main-panel">
         <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
 
-        <div className="content">
+        <main className="dashboard-content-area">
+          <div className="container-fluid px-0 dashboard-shell">
           <div className="profile-container">
             <div className="profile-header">
               <button
@@ -421,7 +422,8 @@ const Profile = ({ search, setSearch, searchResults }) => {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

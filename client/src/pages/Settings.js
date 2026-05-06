@@ -427,24 +427,27 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
   if (loading) {
     return (
-      <div className="app">
+      <div className="dashboard-page">
         <Sidebar />
-        <div className="main">
+        <div className="dashboard-main-panel">
           <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
-          <div className="content">
-            <div className="loading-spinner">Loading settings...</div>
-          </div>
+          <main className="dashboard-content-area">
+            <div className="container-fluid px-0 dashboard-shell">
+              <div className="loading-spinner">Loading settings...</div>
+            </div>
+          </main>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className="dashboard-page">
       <Sidebar />
-      <div className="main">
+      <div className="dashboard-main-panel">
         <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
-        <div className="content">
+        <main className="dashboard-content-area">
+          <div className="container-fluid px-0 dashboard-shell">
           <div className="settings-container">
             <Section label="Security">
               <SettingRow
@@ -514,7 +517,8 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
               NexBank Digital Banking • Made with ❤️ in South Africa
             </div>
           </div>
-        </div>
+          </div>
+        </main>
       </div>
 
       <HelpCenterModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />

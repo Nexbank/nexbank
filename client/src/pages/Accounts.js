@@ -24,11 +24,12 @@ const ACCOUNT_TYPE_DESCRIPTIONS = Object.freeze({
   student: "Low-cost banking for students.",
   fixed_deposit: "Locking money away for disciplined saving.",
   tax_free_savings: "Long-term saving with tax-free growth.",
-  private_banking: "Premium everyday banking with higher limits.",
+  private_banking: "Premium everyday banking with priority support.",
 });
 
 export default function Accounts({ search, setSearch, searchResults }) {
   const [isClosingAccount, setIsClosingAccount] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -38,6 +39,7 @@ export default function Accounts({ search, setSearch, searchResults }) {
     allTransactions,
     selectedAccount,
     selectAccount,
+    createAccount,
     closeAccount,
     isLoading,
   } = useAccount();
@@ -76,10 +78,9 @@ export default function Accounts({ search, setSearch, searchResults }) {
       PRODUCT_CATALOG.filter(
         (product) =>
           product.productKind === "account" &&
-          product.status === "available_now" &&
-          !ownedAccountTypes.has(product.accountType || "")
-      ).slice(0, 3),
-    [ownedAccountTypes]
+          product.status === "available_now"
+      ).slice(0, 4),
+    []
   );
   // 🔹 UI Consistency
   // Keep product discovery compact here so owned-account management stays primary and cross-sell stays secondary.
@@ -156,6 +157,25 @@ export default function Accounts({ search, setSearch, searchResults }) {
     }
   };
 
+  const handleCreateAccount = async (product) => {
+    if (!product?.accountType || ownedAccountTypes.has(product.accountType) || isCreatingAccount) {
+      return;
+    }
+
+    try {
+      setIsCreatingAccount(true);
+      const account = await createAccount({ accountType: product.accountType });
+      showSuccessToast(`${account?.name || product.name} opened successfully.`);
+    } catch (requestError) {
+      await showErrorAlert(
+        "Account creation failed",
+        requestError.response?.data?.error || requestError.message || "Failed to create account."
+      );
+    } finally {
+      setIsCreatingAccount(false);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <Sidebar />
@@ -208,7 +228,7 @@ export default function Accounts({ search, setSearch, searchResults }) {
                           .join(" • ");
                         const bestForDescription =
                           ACCOUNT_TYPE_DESCRIPTIONS[account?.accountType] ||
-                          "Everyday banking with backend-defined rules and limits.";
+                          "Everyday banking with backend-defined product features.";
                         // 🔹 Future-ready
                         // Capability labels are driven by backend rules so new account types inherit the same explanatory UI.
                         const capabilityItems = [
@@ -249,12 +269,8 @@ export default function Accounts({ search, setSearch, searchResults }) {
                                 </strong>
                               </div>
                               <div className="accounts-owned-card__summary-item">
-                                <span>Daily transfer limit</span>
-                                <strong>
-                                  {Number(rules.dailyTransferLimit || 0) > 0
-                                    ? formatCurrency(Number(rules.dailyTransferLimit || 0))
-                                    : "Not available"}
-                                </strong>
+                                <span>Transfers</span>
+                                <strong>{rules.allowsTransfers !== false ? "Available" : "Unavailable"}</strong>
                               </div>
                             </div>
 
@@ -351,27 +367,35 @@ export default function Accounts({ search, setSearch, searchResults }) {
                   {recommendedProducts.length > 0 ? (
                     <div className="action-form">
                       <div className="accounts-preview-grid">
-                        {recommendedProducts.map((product) => (
-                          <article key={product.id} className="accounts-preview-card">
-                            <div className="accounts-preview-card__top">
-                              <div>
-                                <h3>{product.name}</h3>
-                                <p>{product.description}</p>
-                              </div>
-                              <span className="accounts-badge accounts-badge--fee">
-                                {formatCurrency(product.monthlyFee)}/mo
-                              </span>
-                            </div>
+                        {recommendedProducts.map((product) => {
+                          const isOwned = ownedAccountTypes.has(product.accountType || "");
+                          const isSelected = selectedAccount?.accountType === product.accountType;
 
-                            <div className="accounts-feature-row">
-                              {product.benefits.slice(0, 3).map((benefit) => (
-                                <span key={benefit} className="accounts-badge accounts-badge--available">
-                                  {benefit}
+                          return (
+                            <article key={product.id} className="accounts-preview-card">
+                              <div className="accounts-preview-card__top">
+                                <div>
+                                  <h3>{product.name}</h3>
+                                  <p>{product.description}</p>
+                                </div>
+                                <span className="accounts-badge accounts-badge--fee">
+                                  {formatCurrency(product.monthlyFee)}/mo
                                 </span>
-                              ))}
-                            </div>
-                          </article>
-                        ))}
+                              </div>
+
+                              <button
+                                type="button"
+                                className={`action-button action-button--primary ${
+                                  isCreatingAccount && !isOwned ? "action-button--loading" : ""
+                                } action-button--full`}
+                                onClick={() => handleCreateAccount(product)}
+                                disabled={isOwned || isCreatingAccount}
+                              >
+                                {isSelected ? "Selected Account" : isOwned ? "Already opened" : "Create Account"}
+                              </button>
+                            </article>
+                          );
+                        })}
                       </div>
 
                       <button

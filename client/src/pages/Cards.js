@@ -37,6 +37,15 @@ const humanizeValue = (value = "") =>
     .replace(/\b\w/g, (character) => character.toUpperCase())
     .trim();
 
+const resolveCardholderName = (user) => {
+  const displayName = user?.displayName || user?.name || "";
+  const firstName = user?.firstName || user?.firstname || user?.givenName || "";
+  const lastName = user?.lastName || user?.surname || user?.familyName || "";
+  const resolvedName = displayName || [firstName, lastName].filter(Boolean).join(" ");
+
+  return resolvedName.trim().toUpperCase() || "NEXBANK CUSTOMER";
+};
+
 function PinVerificationModal({ isOpen, pin, onChange, onClose, onSubmit, isSubmitting }) {
   if (!isOpen) return null;
 
@@ -103,6 +112,7 @@ export default function Cards({ search, setSearch, searchResults }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [pin, setPin] = useState("");
+  const [cardBackViews, setCardBackViews] = useState({});
 
   const visibleCards = useMemo(() => {
     const searchValue = (search || "").trim().toLowerCase();
@@ -146,6 +156,7 @@ export default function Cards({ search, setSearch, searchResults }) {
     () =>
       visibleCards.map((card) => {
         const linkedAccount = accountsById[card.accountId] || selectedAccount;
+        const cardholderName = resolveCardholderName(user);
 
         return {
           ...card,
@@ -170,10 +181,7 @@ export default function Cards({ search, setSearch, searchResults }) {
                 ? "virtual"
                 : "physical"
             ],
-          cardholderName:
-            user?.displayName?.toUpperCase() ||
-            [user?.firstname, user?.surname].filter(Boolean).join(" ").toUpperCase() ||
-            "NEXBANK CUSTOMER",
+          cardholderName,
         };
       }),
     [accountsById, selectedAccount, user, visibleCards]
@@ -183,6 +191,12 @@ export default function Cards({ search, setSearch, searchResults }) {
     cardTiles.find((card) => card._id === selectedCardId || card.id === selectedCardId) ||
     cardTiles[0] ||
     null;
+  const toggleCardBackView = (cardId) => {
+    setCardBackViews((current) => ({
+      ...current,
+      [cardId]: !current[cardId],
+    }));
+  };
   const visibleCardNumber =
     details?.cardNumber ||
     details?.pan ||
@@ -489,34 +503,47 @@ export default function Cards({ search, setSearch, searchResults }) {
                         <>
                           <button
                             type="button"
-                            className="action-form__button"
+                            className={`action-form__button cards-create-card-button ${
+                              hasVirtualCard ? "cards-create-card-button--owned" : ""
+                            }`}
                             onClick={handleCreateVirtualCard}
                             disabled={isSubmitting || hasVirtualCard}
                           >
                             <FiPlus size={16} />
-                            {hasVirtualCard ? "Virtual Card Already Exists" : "Create Virtual Card"}
+                            {hasVirtualCard ? "Virtual card active" : "Create virtual card"}
                           </button>
 
                           <div className="cards-management-grid">
                             {cardTiles.length === 0 ? (
                               <p className="action-helper">No cards found for this account.</p>
                             ) : (
-                              cardTiles.map((card) => (
-                                <button
+                              cardTiles.map((card) => {
+                                const isSelectedCard = selectedCard?._id === card._id;
+                                const isBackView = Boolean(cardBackViews[card._id]);
+
+                                return (
+                                <article
                                   key={card._id}
-                                  type="button"
                                   className={`cards-management-tile ${
-                                    selectedCard?._id === card._id ? "action-option-card--active" : ""
+                                    isSelectedCard ? "action-option-card--active" : ""
                                   }`}
-                                  onClick={() => {
-                                    setSelectedCardId(card._id);
-                                    setDetails(null);
-                                    setError("");
-                                  }}
                                 >
-                                  <div
-                                    className={`cards-management-preview cards-management-preview--${card.previewVariant}`}
+                                  <button
+                                    type="button"
+                                    className="cards-management-tile__select"
+                                    onClick={() => {
+                                      setSelectedCardId(card._id);
+                                      setDetails(null);
+                                      setError("");
+                                    }}
                                   >
+                                  <div
+                                    className={`cards-management-preview cards-management-preview--${card.previewVariant} ${
+                                      isBackView ? "cards-management-preview--back" : "cards-management-preview--front"
+                                    }`}
+                                  >
+                                    {!isBackView ? (
+                                    <>
                                     <div className="cards-management-preview__top">
                                       <div className="cards-management-preview__brand">
                                         <span className="cards-management-preview__logo">NEXBANK</span>
@@ -560,6 +587,29 @@ export default function Cards({ search, setSearch, searchResults }) {
                                         <strong>{formatExpiry(card.expiryDate)}</strong>
                                       </div>
                                     </div>
+                                    </>
+                                    ) : (
+                                      <div className="cards-management-preview__back">
+                                        <div className="cards-management-preview__back-top">
+                                          <span>NEXBANK</span>
+                                          <strong>{card.statusLabel}</strong>
+                                        </div>
+                                        <div className="cards-management-preview__magstripe" aria-hidden="true" />
+                                        <div className="cards-management-preview__signature-row">
+                                          <div className="cards-management-preview__signature">
+                                            Authorized signature
+                                          </div>
+                                          <div className="cards-management-preview__cvv">
+                                            <span>CVV</span>
+                                            <strong>{details && isSelectedCard ? details.cvv || "•••" : "•••"}</strong>
+                                          </div>
+                                        </div>
+                                        <div className="cards-management-preview__back-meta">
+                                          <span>Ending {card.last4Digits ? `•••• ${card.last4Digits}` : "••••"}</span>
+                                          <span>Support +27 800 123 456</span>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="cards-management-tile__meta">
@@ -575,8 +625,20 @@ export default function Cards({ search, setSearch, searchResults }) {
                                       ))}
                                     </div>
                                   </div>
-                                </button>
-                              ))
+                                  </button>
+
+                                  {isSelectedCard ? (
+                                    <button
+                                      type="button"
+                                      className="cards-management-flip-button"
+                                      onClick={() => toggleCardBackView(card._id)}
+                                    >
+                                      {isBackView ? "View front" : "View back"}
+                                    </button>
+                                  ) : null}
+                                </article>
+                                );
+                              })
                             )}
                           </div>
                           {selectedCard ? (

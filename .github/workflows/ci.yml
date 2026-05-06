@@ -65,4 +65,7 @@ jobs:
           version: latest
 
       - name: Validate Kubernetes manifests
-        run: kubectl apply --dry-run=client --validate=false -f k8s/
+        run: |
+          echo "Validating Kubernetes YAML files..."
+          kubectl version --client
+          kubectl apply --dry-run=client --validate=false --server-dry-run=false -f k8s/

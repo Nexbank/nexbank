@@ -346,7 +346,7 @@ router.post("/transactions", async (req, res) => {
         "Destination account not found",
         "Transfer destination must be different from the source account",
         "Destination account number is required for internal transfers",
-      ].includes(error.message) || error.message.includes("daily transfer limit")
+      ].includes(error.message)
         ? 400
         : 500
     ).json({ error: error.message || "Failed to create transaction" });
@@ -398,34 +398,47 @@ router.post("/accounts", async (req, res) => {
       body: req.body,
     });
     await ensureUserExists(req.user.userId);
-    const account = await createAccount(req.user.userId, {
+    const accountResult = await createAccount(req.user.userId, {
       accountType: req.body.accountType,
       name: req.body.name,
       category: req.body.category,
     });
-    await createNotification(req.user.userId, {
-      title: "Account created",
-      message: `${account.name || "Your account"} was created successfully.`,
-      type: "account",
-      metadata: {
-        event: "account_created",
-        accountId: account._id,
-        accountType: account.accountType,
-      },
-    });
+    const account = accountResult.account;
+    if (accountResult.created) {
+      await createNotification(req.user.userId, {
+        title: "Account created",
+        message: `${account.name || "Your account"} was created successfully.`,
+        type: "account",
+        metadata: {
+          event: "account_created",
+          accountId: account._id,
+          accountType: account.accountType,
+        },
+      });
+    }
     // 🔹 Banking Logic
     // Return the refreshed summary immediately so the frontend never has to invent account state after creation.
     const summary = await loadSummary(req.user.userId);
 
-    res.status(201).json({
-      message: "Account created successfully",
+    res.status(accountResult.created ? 201 : 200).json({
+      message: accountResult.created ? "Account created successfully" : "Account already exists",
       account,
       ...summary,
     });
   } catch (error) {
     console.error(error);
-    res.status(error.message === "User not found" ? 404 : 500).json({
-      error: error.message === "User not found" ? error.message : "Failed to create account",
+    res.status(
+      error.message === "User not found"
+        ? 404
+        : error.message === "An active account for this product already exists."
+          ? 400
+          : 500
+    ).json({
+      error:
+        error.message === "User not found" ||
+        error.message === "An active account for this product already exists."
+          ? error.message
+          : "Failed to create account",
     });
   }
 });

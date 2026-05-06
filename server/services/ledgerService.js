@@ -104,7 +104,14 @@ const LEGACY_ACCOUNT_CLASSIFICATIONS = Object.freeze({
   Current: DEFAULT_ACCOUNT_CLASSIFICATION,
   "Current Account": DEFAULT_ACCOUNT_CLASSIFICATION,
   "Main Account": ACCOUNT_CLASSIFICATIONS.current,
+  current_account: DEFAULT_ACCOUNT_CLASSIFICATION,
+  main_account: ACCOUNT_CLASSIFICATIONS.current,
   "Flexi Account": {
+    name: "Flexi Account",
+    accountType: "current",
+    category: "transactional",
+  },
+  flexi_account: {
     name: "Flexi Account",
     accountType: "current",
     category: "transactional",
@@ -114,9 +121,19 @@ const LEGACY_ACCOUNT_CLASSIFICATIONS = Object.freeze({
     accountType: "current",
     category: "transactional",
   },
+  transact_account: {
+    name: "Transact Account",
+    accountType: "current",
+    category: "transactional",
+  },
   TruSave: ACCOUNT_CLASSIFICATIONS.savings,
+  trusave: ACCOUNT_CLASSIFICATIONS.savings,
   "Student Account": ACCOUNT_CLASSIFICATIONS.student,
+  student_account: ACCOUNT_CLASSIFICATIONS.student,
+  "Fixed Deposit": ACCOUNT_CLASSIFICATIONS.fixed_deposit,
+  "Tax-Free Savings": ACCOUNT_CLASSIFICATIONS.tax_free_savings,
   "Private Banking": ACCOUNT_CLASSIFICATIONS.private_banking,
+  private_banking: ACCOUNT_CLASSIFICATIONS.private_banking,
 });
 const CATEGORY_COMPATIBILITY = Object.freeze({
   cheque: "transactional",
@@ -186,10 +203,45 @@ const humanizeAccountValue = (value = "") =>
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase())
     .trim();
-const getAccountClassification = (value = "") =>
-  ACCOUNT_CLASSIFICATIONS[value] ||
-  LEGACY_ACCOUNT_CLASSIFICATIONS[value] ||
-  null;
+const normalizeAccountTypeValue = (value = DEFAULT_ACCOUNT_CLASSIFICATION.accountType) => {
+  const rawValue = String(value || DEFAULT_ACCOUNT_CLASSIFICATION.accountType).trim();
+  const directClassification =
+    ACCOUNT_CLASSIFICATIONS[rawValue] ||
+    LEGACY_ACCOUNT_CLASSIFICATIONS[rawValue];
+
+  if (directClassification?.accountType) {
+    return directClassification.accountType;
+  }
+
+  const normalizedValue = rawValue.toLowerCase().replace(/[\s-]+/g, "_");
+  const normalizedClassification =
+    ACCOUNT_CLASSIFICATIONS[normalizedValue] ||
+    LEGACY_ACCOUNT_CLASSIFICATIONS[normalizedValue];
+
+  return (
+    normalizedClassification?.accountType ||
+    (ACCOUNT_CLASSIFICATIONS[normalizedValue] ? normalizedValue : "") ||
+    DEFAULT_ACCOUNT_CLASSIFICATION.accountType
+  );
+};
+const getAccountClassification = (value = "") => {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalizedValue = rawValue.toLowerCase().replace(/[\s-]+/g, "_");
+
+  return (
+    ACCOUNT_CLASSIFICATIONS[rawValue] ||
+    LEGACY_ACCOUNT_CLASSIFICATIONS[rawValue] ||
+    ACCOUNT_CLASSIFICATIONS[normalizedValue] ||
+    LEGACY_ACCOUNT_CLASSIFICATIONS[normalizedValue] ||
+    ACCOUNT_CLASSIFICATIONS[normalizeAccountTypeValue(rawValue)] ||
+    null
+  );
+};
 const getAccountRules = (accountType = DEFAULT_ACCOUNT_CLASSIFICATION.accountType) =>
   ACCOUNT_TYPE_RULES[accountType] || ACCOUNT_TYPE_RULES[DEFAULT_ACCOUNT_CLASSIFICATION.accountType];
 const normalizeAccountClassification = ({
@@ -229,6 +281,24 @@ const serializeAccount = (account) => ({
   // Ship backend-owned rule summaries with each account so the frontend can explain capabilities without becoming authoritative.
   rules: buildAccountRulesSummary(account.accountType),
 });
+const serializeAccountsForSummary = (accounts = []) => {
+  const activeAccountTypes = new Set();
+
+  return accounts
+    .map((account) => serializeAccount(account))
+    .filter((account) => {
+      if (!isAccountOperational(account)) {
+        return true;
+      }
+
+      if (activeAccountTypes.has(account.accountType)) {
+        return false;
+      }
+
+      activeAccountTypes.add(account.accountType);
+      return true;
+    });
+};
 const getBillingPeriod = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
@@ -252,6 +322,20 @@ const cardNameForType = (cardType) =>
 const isCardUsable = (card) => card && card.status === ACTIVE_CARD_STATUS && card.isActive !== false;
 const isAccountOperational = (account) =>
   Boolean(account) && account.status !== CLOSED_ACCOUNT_STATUS && account.isActive !== false;
+const buildActiveAccountTypeFilter = (userId, accountType, ignoredAccountId = null) => {
+  const filter = {
+    userId,
+    accountType: normalizeAccountTypeValue(accountType),
+    status: { $ne: CLOSED_ACCOUNT_STATUS },
+    isActive: { $ne: false },
+  };
+
+  if (ignoredAccountId) {
+    filter._id = { $ne: ignoredAccountId };
+  }
+
+  return filter;
+};
 
 const syncAccountBalanceCache = (account) => {
   account.balance = roundMoney(account.availableBalance);
@@ -392,6 +476,7 @@ async function ensureUserAccounts(userId) {
   const existingAccounts = await Account.find({ userId }).sort({ createdAt: 1 });
   if (existingAccounts.length > 0) {
     let hasChanges = false;
+    const activeAccountTypes = new Set();
 
     existingAccounts.forEach((account) => {
       const previousStatus = account.status;
@@ -409,6 +494,19 @@ async function ensureUserAccounts(userId) {
       account.accountType = normalizedClassification.accountType;
       account.category = normalizedClassification.category;
       normalizeExistingAccountOperationalState(account);
+
+      if (isAccountOperational(account)) {
+        if (activeAccountTypes.has(account.accountType)) {
+          account.status = CLOSED_ACCOUNT_STATUS;
+          account.isActive = false;
+          account.closedAt = account.closedAt || new Date();
+          account.closedReason = account.closedReason || "duplicate_product";
+          syncAccountBalanceCache(account);
+        } else {
+          activeAccountTypes.add(account.accountType);
+        }
+      }
+
       if (
         account.status !== previousStatus ||
         account.isActive !== previousIsActive ||
@@ -422,27 +520,19 @@ async function ensureUserAccounts(userId) {
     });
 
     if (hasChanges) {
-      await Promise.all(existingAccounts.filter((account) => account.isModified()).map((account) => account.save()));
+      const modifiedAccounts = existingAccounts.filter((account) => account.isModified());
+      const inactiveAccounts = modifiedAccounts.filter((account) => !isAccountOperational(account));
+      const activeAccounts = modifiedAccounts.filter((account) => isAccountOperational(account));
+
+      await Promise.all(inactiveAccounts.map((account) => account.save()));
+      await Promise.all(activeAccounts.map((account) => account.save()));
     }
 
     await Promise.all(existingAccounts.map((account) => syncCardStatesForAccount(account)));
     return existingAccounts;
   }
 
-  const created = await Account.insertMany(
-    defaultAccounts.map((account) => buildAccountDocument(userId, account))
-  );
-
-  await Promise.all(
-    created.map(async (account) => {
-      if (getAccountRules(account.accountType).allowsCards) {
-        const physicalCard = buildCardDocument(userId, account, "Physical Card");
-        await physicalCard.save();
-      }
-    })
-  );
-
-  return Account.find({ userId }).sort({ createdAt: 1 });
+  return [];
 }
 
 async function createAccount(userId, payload = {}) {
@@ -451,13 +541,45 @@ async function createAccount(userId, payload = {}) {
     accountType: payload.accountType,
     category: payload.category,
   });
+  await ensureUserAccounts(userId);
+
+  const existingActiveAccount = await Account.findOne(
+    buildActiveAccountTypeFilter(userId, normalizedClassification.accountType)
+  ).sort({ createdAt: 1 });
+  if (existingActiveAccount) {
+    return {
+      account: serializeAccount(existingActiveAccount),
+      created: false,
+    };
+  }
+
   const account = new Account(
     buildAccountDocument(userId, {
       ...normalizedClassification,
     })
   );
 
-  await account.save();
+  try {
+    await account.save();
+  } catch (error) {
+    if (
+      error.code === 11000 ||
+      error.message === "An active account for this product already exists."
+    ) {
+      const existingAccount = await Account.findOne(
+        buildActiveAccountTypeFilter(userId, normalizedClassification.accountType)
+      ).sort({ createdAt: 1 });
+
+      if (existingAccount) {
+        return {
+          account: serializeAccount(existingAccount),
+          created: false,
+        };
+      }
+    }
+
+    throw error;
+  }
 
   if (getAccountRules(account.accountType).allowsCards) {
     // 🔹 Banking Logic
@@ -466,7 +588,10 @@ async function createAccount(userId, payload = {}) {
     await physicalCard.save();
   }
 
-  return serializeAccount(account);
+  return {
+    account: serializeAccount(account),
+    created: true,
+  };
 }
 
 async function closeAccount(userId, accountId) {
@@ -665,7 +790,7 @@ async function getBankingSummary(userId) {
   const cards = await ensureUserCards(userId);
   const transactions = await Transaction.find({ userId }).sort({ createdAt: -1 }).lean();
   return {
-    accounts: accounts.map((account) => serializeAccount(account)),
+    accounts: serializeAccountsForSummary(accounts),
     cards: cards.map((card) => card.toObject()),
     transactions,
   };
@@ -673,7 +798,7 @@ async function getBankingSummary(userId) {
 
 async function getUserAccounts(userId) {
   const accounts = await ensureUserAccounts(userId);
-  return accounts.map((account) => serializeAccount(account));
+  return serializeAccountsForSummary(accounts);
 }
 
 async function getUserCards(userId, accountId) {
@@ -939,14 +1064,6 @@ function validateAccountTransactionRules(account, payload) {
   if (payload.type === "transfer") {
     if (!rules.allowsTransfers) {
       throw new Error("Transfers are not available for this account type.");
-    }
-
-    if (rules.dailyTransferLimit <= 0) {
-      throw new Error("Transfers are not available for this account type.");
-    }
-
-    if (roundMoney(payload.amount) > Number(rules.dailyTransferLimit || 0)) {
-      throw new Error(`This account type has a daily transfer limit of R${Number(rules.dailyTransferLimit).toFixed(2)}.`);
     }
   }
 }

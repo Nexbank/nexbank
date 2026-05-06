@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import API from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
-import { apiUrl } from "../config/api";
 import { useAccount } from "../context/AccountContext";
 import { showErrorAlert, showSuccessAlert, showSuccessToast } from "../utils/alerts";
 
@@ -300,12 +299,10 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
       }
 
       try {
-        const response = await axios.get(
-          apiUrl(`/settings/${userId}`),
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const profileResponse = await API.get("/profile/me");
+        updateStoredUser(profileResponse.data);
+
+        const response = await API.get(`/settings/${userId}`);
 
         if (response.data.preferences) {
           // 🔹 Future-ready
@@ -335,8 +332,8 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
     }
 
     try {
-      await axios.put(
-        apiUrl(`/settings/${userId}`),
+      await API.put(
+        `/settings/${userId}`,
         {
           twoFactor: updatedSettings.biometric,
           pushNotifications: updatedSettings.txAlerts,

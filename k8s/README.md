@@ -13,7 +13,7 @@ For Minikube image loading:
 
 ```bash
 docker build -t nexbank-backend:latest ./server
-docker build --build-arg REACT_APP_API_BASE_URL=/api -t nexbank-frontend:latest ./client
+docker build --build-arg REACT_APP_API_BASE_URL=https://nexbank-backend-o3kz.onrender.com/api -t nexbank-frontend:latest ./client
 minikube image load nexbank-backend:latest
 minikube image load nexbank-frontend:latest
 ```

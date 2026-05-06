@@ -43,7 +43,7 @@ jobs:
         run: npm run build
         env:
           CI: true
-          REACT_APP_API_BASE_URL: /api
+          REACT_APP_API_BASE_URL: https://nexbank-backend-o3kz.onrender.com/api
 
   container-validation:
     runs-on: ubuntu-latest
@@ -57,10 +57,9 @@ jobs:
         run: docker build -t nexbank-backend:ci ./server
 
       - name: Build frontend Docker image
-        run: docker build --build-arg REACT_APP_API_BASE_URL=/api -t nexbank-frontend:ci ./client
+        run: docker build --build-arg REACT_APP_API_BASE_URL=https://nexbank-backend-o3kz.onrender.com/api -t nexbank-frontend:ci ./client
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: latest
-

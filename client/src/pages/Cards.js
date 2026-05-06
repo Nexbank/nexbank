@@ -1,111 +1,395 @@
-import { useState } from "react";
-import {
-  FiPlus,
-  FiShield,
-  FiZap,
-  FiGlobe,
-  FiMinusSquare,
-} from "react-icons/fi";
+import { useMemo, useState } from "react";
+import { FiCreditCard, FiEye, FiLock, FiPlus, FiRefreshCcw, FiWifi } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import AccountRequiredState from "../components/AccountRequiredState";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import { useAccount } from "../context/AccountContext";
+import API from "../services/api";
+import {
+  showConfirmationAlert,
+  showErrorAlert,
+  showSuccessToast,
+} from "../utils/alerts";
+import { formatCurrency } from "../utils/currency";
 
-const initialCards = [
-  {
-    type: "Virtual Card",
-    lastDigits: "4582",
-    expiry: "08/27",
-    status: "Active",
-    variant: "cards-card--virtual",
-    iconClass: "cards-card-icon--active",
-  },
-  {
-    type: "Physical Card",
-    lastDigits: "1290",
-    expiry: "12/25",
-    status: "Locked",
-    variant: "cards-card--physical",
-    iconClass: "cards-card-icon--locked",
-  },
-];
+const ACTIVE_CARD_STATUS = "active";
+const FROZEN_CARD_STATUS = "frozen";
+const CARD_CAPABILITIES = Object.freeze({
+  physical: ["ATM", "Tap to Pay", "Online"],
+  virtual: ["Online", "Subscriptions", "Safer checkout"],
+});
 
-const securitySettings = [
-  {
-    title: "Contactless Payments",
-    icon: FiZap,
-    enabled: true,
-  },
-  {
-    title: "Online Transactions",
-    icon: FiShield,
-    enabled: true,
-  },
-  {
-    title: "ATM Withdrawals",
-    icon: FiMinusSquare,
-    enabled: false,
-  },
-];
+const formatExpiry = (value) => {
+  if (!value) {
+    return "N/A";
+  }
 
-export default function Cards() {
-  const [cards, setCards] = useState(initialCards);
-  const [settings, setSettings] = useState(securitySettings);
-  const [isAddCardOpen, setIsAddCardOpen] = useState(false);
-  const [newCard, setNewCard] = useState({
-    type: "Virtual Card",
-    lastDigits: "",
-    expiry: "",
-    status: "Active",
+  return new Date(value).toLocaleDateString("en-ZA", {
+    month: "2-digit",
+    year: "2-digit",
   });
+};
 
-  const toggleSetting = (title) => {
-    setSettings((current) =>
-      current.map((item) =>
-        item.title === title ? { ...item, enabled: !item.enabled } : item
-      )
-    );
-  };
+const humanizeValue = (value = "") =>
+  String(value)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim();
 
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setNewCard((current) => ({
+const resolveCardholderName = (user) => {
+  const displayName = user?.displayName || user?.name || "";
+  const firstName = user?.firstName || user?.firstname || user?.givenName || "";
+  const lastName = user?.lastName || user?.surname || user?.familyName || "";
+  const resolvedName = displayName || [firstName, lastName].filter(Boolean).join(" ");
+
+  return resolvedName.trim().toUpperCase() || "NEXBANK CUSTOMER";
+};
+
+function PinVerificationModal({ isOpen, pin, onChange, onClose, onSubmit, isSubmitting }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="cards-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="cards-modal modal-dialog modal-dialog-centered"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <form className="cards-modal-content modal-content" onSubmit={onSubmit}>
+          <div className="cards-modal-header">
+            <div>
+              <h2 className="cards-modal-title">Verify PIN</h2>
+              <p className="cards-modal-copy">Enter your PIN to reveal card details.</p>
+            </div>
+            <button type="button" className="cards-modal-close" onClick={onClose}>×</button>
+          </div>
+
+          <label className="cards-form-label" htmlFor="card-details-pin">PIN</label>
+          <input
+            id="card-details-pin"
+            className="cards-form-control"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={pin}
+            onChange={(event) => onChange(event.target.value)}
+          />
+
+          <div className="cards-form-actions">
+            <button type="button" className="cards-form-cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="cards-form-submit" disabled={isSubmitting}>
+              {isSubmitting ? "Verifying..." : "Confirm"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function Cards({ search, setSearch, searchResults }) {
+  const navigate = useNavigate();
+  const {
+    accounts,
+    selectedAccount,
+    selectedCards,
+    user,
+    createCard,
+    getCardDetails,
+    freezeCard,
+    replaceCard,
+    updateCard,
+    selectAccount,
+    isLoading,
+  } = useAccount();
+  const [selectedCardId, setSelectedCardId] = useState("");
+  const [details, setDetails] = useState(null);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [cardBackViews, setCardBackViews] = useState({});
+
+  const visibleCards = useMemo(() => {
+    const searchValue = (search || "").trim().toLowerCase();
+    const filteredCards = searchValue
+      ? selectedCards.filter((card) =>
+          card.cardType?.toLowerCase().includes(searchValue) ||
+          card.type?.toLowerCase().includes(searchValue) ||
+          card.cardNumber?.toLowerCase().includes(searchValue) ||
+          card.status?.toLowerCase().includes(searchValue)
+        )
+      : selectedCards;
+
+    return [...filteredCards]
+      // 🔹 Banking Logic
+      // Replaced cards remain in backend history, but the management view should focus on cards the customer can still act on.
+      .filter((card) => card.status !== "replaced")
+      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+  }, [search, selectedCards]);
+  const selectableAccounts = accounts.filter(Boolean);
+  const selectedAccountRules = selectedAccount?.rules || null;
+  // 🔹 Safety / Validation
+  // Card creation is hidden for unsupported account types so the UI does not contradict backend rule enforcement.
+  const canCreateCards = selectedAccountRules?.allowsCards !== false;
+  const switchableCardAccount = useMemo(
+    () =>
+      selectableAccounts.find(
+        (account) =>
+          account._id !== selectedAccount?._id && account?.rules?.allowsCards !== false
+      ) || null,
+    [selectableAccounts, selectedAccount]
+  );
+  const accountsById = useMemo(
+    () =>
+      selectableAccounts.reduce((lookup, account) => {
+        lookup[account._id] = account;
+        return lookup;
+      }, {}),
+    [selectableAccounts]
+  );
+  const cardTiles = useMemo(
+    () =>
+      visibleCards.map((card) => {
+        const linkedAccount = accountsById[card.accountId] || selectedAccount;
+        const cardholderName = resolveCardholderName(user);
+
+        return {
+          ...card,
+          linkedAccountLabel: `${linkedAccount?.name || linkedAccount?.accountType || "Account"} • ${
+            linkedAccount?.accountNumber || "Unavailable"
+          }`,
+          linkedAccountName: linkedAccount?.name || linkedAccount?.accountType || "Account",
+          linkedAccountNumber: linkedAccount?.accountNumber || "Unavailable",
+          statusLabel:
+            card.status === ACTIVE_CARD_STATUS
+              ? "Active"
+              : card.status === FROZEN_CARD_STATUS
+                ? "Blocked"
+                : humanizeValue(card.status),
+          maskedNumber: card.cardNumber || `**** **** **** ${card.last4Digits}`,
+          previewVariant: String(card.cardType || card.type).toLowerCase().includes("virtual")
+            ? "virtual"
+            : "physical",
+          capabilityBadges:
+            CARD_CAPABILITIES[
+              String(card.cardType || card.type).toLowerCase().includes("virtual")
+                ? "virtual"
+                : "physical"
+            ],
+          cardholderName,
+        };
+      }),
+    [accountsById, selectedAccount, user, visibleCards]
+  );
+
+  const selectedCard =
+    cardTiles.find((card) => card._id === selectedCardId || card.id === selectedCardId) ||
+    cardTiles[0] ||
+    null;
+  const toggleCardBackView = (cardId) => {
+    setCardBackViews((current) => ({
       ...current,
-      [name]: value,
+      [cardId]: !current[cardId],
     }));
   };
+  const visibleCardNumber =
+    details?.cardNumber ||
+    details?.pan ||
+    details?.fullCardNumber ||
+    details?.maskedPan ||
+    selectedCard?.maskedNumber ||
+    "•••• •••• •••• ••••";
+  // 🔹 Future-ready
+  // The UI can reveal more if the backend ever returns it, but masked values remain the safe default today.
 
-  const handleAddCard = (event) => {
-    event.preventDefault();
+  const hasVirtualCard = visibleCards.some((card) =>
+    String(card.cardType || card.type).toLowerCase().includes("virtual")
+  );
+  const shouldShowAccountState = !isLoading && !selectedAccount;
+  const accountDisplayBalance = Number(
+    selectedAccount?.availableBalance ??
+      selectedAccount?.balance ??
+      selectedAccount?.ledgerBalance ??
+      0
+  );
+  const accountDisplayName = selectedAccount?.name || selectedAccount?.accountType || "Selected account";
+  const accountDisplayNumber = selectedAccount?.accountNumber || "Account unavailable";
+  const accountDisplayType = [selectedAccount?.accountType, selectedAccount?.category]
+    .filter(Boolean)
+    .map((value) => humanizeValue(value))
+    .join(" • ");
 
-    const cleanDigits = newCard.lastDigits.replace(/\D/g, "").slice(-4);
-    const cleanExpiry = newCard.expiry.trim();
+  const handleCreateVirtualCard = async () => {
+    try {
+      setIsSubmitting(true);
+      setError("");
+      const card = await createCard({ cardType: "Virtual Card", accountId: selectedAccount._id });
+      setSelectedCardId(card?._id || "");
+      setDetails(null);
+      showSuccessToast("Card created successfully.");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error ||
+        requestError.message ||
+        "Failed to create virtual card.";
+      setError(message);
+      await showErrorAlert("Card creation failed", message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    if (cleanDigits.length !== 4 || !/^\d{2}\/\d{2}$/.test(cleanExpiry)) {
+  const handleViewDetails = async () => {
+    if (!selectedCard) {
       return;
     }
 
-    const isVirtual = newCard.type === "Virtual Card";
+    if (user?.mustChangePin) {
+      await showErrorAlert(
+        "PIN change required",
+        "Please change your temporary PIN before viewing card details."
+      );
+      navigate("/settings");
+      return;
+    }
 
-    setCards((current) => [
-      {
-        type: newCard.type,
-        lastDigits: cleanDigits,
-        expiry: cleanExpiry,
-        status: newCard.status,
-        variant: isVirtual ? "cards-card--virtual" : "cards-card--physical",
-        iconClass: newCard.status === "Locked"
-          ? "cards-card-icon--locked"
-          : "cards-card-icon--active",
-      },
-      ...current,
-    ]);
+    if (user?.hasPin === false) {
+      await showErrorAlert("PIN required", "Please set a PIN in Settings before viewing card details.");
+      navigate("/settings");
+      return;
+    }
 
-    setNewCard({
-      type: "Virtual Card",
-      lastDigits: "",
-      expiry: "",
-      status: "Active",
+    setPin("");
+    setIsPinModalOpen(true);
+  };
+
+  const closePinModal = () => {
+    if (!isSubmitting) {
+      setIsPinModalOpen(false);
+      setPin("");
+    }
+  };
+
+  const handleVerifyPin = async (event) => {
+    event.preventDefault();
+
+    if (!selectedCard) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+      // 🔹 Banking Logic
+      // Sensitive card details are fetched on demand instead of being included in the regular summary payload.
+      await API.post("/auth/verify-pin", { pin });
+      setDetails(await getCardDetails(selectedCard._id));
+      setIsPinModalOpen(false);
+      setPin("");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error ||
+        requestError.message ||
+        "Failed to verify PIN.";
+      setError(message);
+
+      if (message === "No PIN set") {
+        await showErrorAlert("PIN required", "Please set a PIN in Settings before viewing card details.");
+        navigate("/settings");
+      } else if (message === "Incorrect PIN") {
+        await showErrorAlert("Incorrect PIN", "Incorrect PIN.");
+      } else {
+        await showErrorAlert("Unable to reveal card details", message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!selectedCard) {
+      return;
+    }
+
+    const isBlocked = selectedCard.status === FROZEN_CARD_STATUS;
+    if (!isBlocked) {
+      const confirmation = await showConfirmationAlert({
+        title: "Block this card?",
+        text: "The card will be blocked immediately and cannot be used until you unblock it.",
+        confirmButtonText: "Block card",
+      });
+
+      if (!confirmation.isConfirmed) {
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+
+      if (isBlocked) {
+        // 🔹 Banking Logic
+        // Unblock uses the generic update route, while block follows the dedicated freeze lifecycle path.
+        await updateCard(selectedCard._id, { status: ACTIVE_CARD_STATUS });
+        showSuccessToast("Card unblocked successfully.");
+      } else {
+        await freezeCard(selectedCard._id);
+        showSuccessToast("Card blocked successfully.");
+      }
+
+      setDetails(null);
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error ||
+        requestError.message ||
+        "Failed to update card status.";
+      setError(message);
+      await showErrorAlert("Card update failed", message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReplace = async () => {
+    if (!selectedCard) {
+      return;
+    }
+
+    const confirmation = await showConfirmationAlert({
+      title: "Replace this card?",
+      text: "The current card will be deactivated and a new card will be issued for this account.",
+      confirmButtonText: "Replace card",
     });
-    setIsAddCardOpen(false);
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+      // 🔹 Banking Logic
+      // Replacement preserves audit history by retiring the old card and issuing a linked successor record.
+      const replacement = await replaceCard(selectedCard._id);
+      setSelectedCardId(replacement?.newCard?._id || "");
+      setDetails(null);
+      showSuccessToast("Card replaced successfully.");
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.error ||
+        requestError.message ||
+        "Failed to replace card.";
+      setError(message);
+      await showErrorAlert("Card replacement failed", message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -113,215 +397,320 @@ export default function Cards() {
       <Sidebar />
 
       <div className="dashboard-main-panel">
-        <Navbar />
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} searchPlaceholder="Search cards..." />
 
         <main className="dashboard-content-area">
-          <div className="container-fluid px-0 dashboard-shell cards-shell">
-            <section className="cards-section">
-              <div className="cards-header">
-                <h1 className="cards-title">My Cards</h1>
-
-                <button
-                  type="button"
-                  className="cards-add-button"
-                  onClick={() => setIsAddCardOpen(true)}
-                >
-                  <FiPlus size={18} />
-                  Add New Card
-                </button>
+          <div className="container-fluid px-0 dashboard-shell">
+            <section className="action-page">
+              <div className="action-page__hero">
+                <span className="action-page__icon action-page__icon--blue">
+                  <FiCreditCard size={28} />
+                </span>
+                <div>
+                  <p className="action-page__eyebrow">Cards</p>
+                  <h1 className="action-page__title">Manage Cards</h1>
+                  <p className="action-page__copy">
+                    The same selected account drives the cards shown here, and card actions apply to the
+                    card number only.
+                  </p>
+                </div>
               </div>
 
-              <div className="row g-4">
-                {cards.map(({ type, lastDigits, expiry, status, variant, iconClass }) => (
-                  <div key={type} className="col-12 col-lg-6">
-                    <article className={`cards-card ${variant}`}>
-                      <div className="cards-card-top">
-                        <div>
-                          <p className="cards-card-label">{type}</p>
+              {shouldShowAccountState ? (
+                <section className="dashboard-section">
+                  <AccountRequiredState
+                    title="No account available"
+                    copy="Create or select an account before managing cards."
+                  />
+                </section>
+              ) : (
+              <div className="action-page__grid">
+                  <article className="action-panel">
+                    <p className="action-panel__label">Card account</p>
+                    <h2 className="action-panel__value">{formatCurrency(accountDisplayBalance)}</h2>
+                    <p className="action-panel__meta">
+                      {accountDisplayName} • {accountDisplayNumber}
+                    </p>
+                    {accountDisplayType ? (
+                      <div className="accounts-feature-row mt-3">
+                        <span className="accounts-badge accounts-badge--type">{accountDisplayType}</span>
+                      </div>
+                    ) : null}
+                  </article>
+
+                  <article className="action-panel action-panel--form">
+                    <div className="action-panel__header">
+                      <h2 className="action-panel__title">Card Management</h2>
+                      <p className="action-panel__copy">
+                        Switch accounts, create a virtual card, and manage card controls from one place.
+                      </p>
+                    </div>
+
+                    <div className="action-form">
+                      <label className="action-form__field">
+                        <span>Selected account</span>
+                        <select
+                          className="action-form__input"
+                          value={selectedAccount?._id || ""}
+                          onChange={(event) => {
+                            selectAccount(event.target.value);
+                            setSelectedCardId("");
+                            setDetails(null);
+                            setError("");
+                          }}
+                        >
+                          {selectableAccounts.map((account) => (
+                            <option key={account._id} value={account._id}>
+                              {(account.name || account.accountType || "Account")} • {account.accountNumber}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {error ? <small className="action-helper action-helper--error">{error}</small> : null}
+                      {!canCreateCards ? (
+                        <div className="accounts-empty-state">
+                          <p className="action-panel__label">Cards unavailable</p>
+                          <h2 className="action-panel__value">Cards are not available for this account</h2>
+                          <p className="action-panel__meta">
+                            Savings accounts are designed for storing money. To use cards, switch to a Current Account.
+                          </p>
+                          <div className="action-form__actions">
+                            {switchableCardAccount ? (
+                              <button
+                                type="button"
+                                className="action-button action-button--ghost"
+                                onClick={() => {
+                                  selectAccount(switchableCardAccount._id);
+                                  setSelectedCardId("");
+                                  setDetails(null);
+                                  setError("");
+                                }}
+                              >
+                                Switch Account
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="action-button action-button--primary"
+                              onClick={() => navigate("/products")}
+                            >
+                              Open a Current Account
+                            </button>
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className={`action-form__button cards-create-card-button ${
+                              hasVirtualCard ? "cards-create-card-button--owned" : ""
+                            }`}
+                            onClick={handleCreateVirtualCard}
+                            disabled={isSubmitting || hasVirtualCard}
+                          >
+                            <FiPlus size={16} />
+                            {hasVirtualCard ? "Virtual card active" : "Create virtual card"}
+                          </button>
 
-                        <span className={`cards-card-icon ${iconClass}`} aria-hidden="true">
-                          <FiShield size={16} />
-                        </span>
-                      </div>
+                          <div className="cards-management-grid">
+                            {cardTiles.length === 0 ? (
+                              <p className="action-helper">No cards found for this account.</p>
+                            ) : (
+                              cardTiles.map((card) => {
+                                const isSelectedCard = selectedCard?._id === card._id;
+                                const isBackView = Boolean(cardBackViews[card._id]);
 
-                      <div className="cards-card-middle">
-                        <p className="cards-card-number">•••• {lastDigits}</p>
-                      </div>
+                                return (
+                                <article
+                                  key={card._id}
+                                  className={`cards-management-tile ${
+                                    isSelectedCard ? "action-option-card--active" : ""
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    className="cards-management-tile__select"
+                                    onClick={() => {
+                                      setSelectedCardId(card._id);
+                                      setDetails(null);
+                                      setError("");
+                                    }}
+                                  >
+                                  <div
+                                    className={`cards-management-preview cards-management-preview--${card.previewVariant} ${
+                                      isBackView ? "cards-management-preview--back" : "cards-management-preview--front"
+                                    }`}
+                                  >
+                                    {!isBackView ? (
+                                    <>
+                                    <div className="cards-management-preview__top">
+                                      <div className="cards-management-preview__brand">
+                                        <span className="cards-management-preview__logo">NEXBANK</span>
+                                        <span className="cards-management-preview__type">
+                                          {card.cardType}
+                                        </span>
+                                      </div>
+                                      <span
+                                        className={`accounts-badge ${
+                                          card.status === ACTIVE_CARD_STATUS
+                                            ? "accounts-badge--available"
+                                            : "accounts-badge--unavailable"
+                                        }`}
+                                      >
+                                        {card.statusLabel}
+                                      </span>
+                                    </div>
 
-                      <div className="cards-card-bottom">
-                        <div className="cards-card-meta">
-                          <span className="cards-card-expiry">EXP: {expiry}</span>
-                        </div>
+                                    <div className="cards-management-preview__hardware">
+                                      <div className="cards-management-preview__chip" aria-hidden="true">
+                                        <span />
+                                        <span />
+                                        <span />
+                                      </div>
+                                      <span className="cards-management-preview__contactless" aria-hidden="true">
+                                        <FiWifi size={18} />
+                                      </span>
+                                    </div>
 
-                        <span className="cards-card-status">{status}</span>
-                      </div>
+                                    <div className="cards-management-preview__number">
+                                      {card.maskedNumber}
+                                    </div>
 
-                      <div className="cards-card-footer">
-                        <span className="cards-chip" aria-hidden="true" />
-                        <span className="cards-brand">NexBank</span>
-                      </div>
-                    </article>
-                  </div>
-                ))}
-              </div>
-            </section>
+                                    <div className="cards-management-preview__footer">
+                                      <div>
+                                        <span>Cardholder</span>
+                                        <strong>{card.cardholderName}</strong>
+                                      </div>
+                                      <div>
+                                        <span>Expiry</span>
+                                        <strong>{formatExpiry(card.expiryDate)}</strong>
+                                      </div>
+                                    </div>
+                                    </>
+                                    ) : (
+                                      <div className="cards-management-preview__back">
+                                        <div className="cards-management-preview__back-top">
+                                          <span>NEXBANK</span>
+                                          <strong>{card.statusLabel}</strong>
+                                        </div>
+                                        <div className="cards-management-preview__magstripe" aria-hidden="true" />
+                                        <div className="cards-management-preview__signature-row">
+                                          <div className="cards-management-preview__signature">
+                                            Authorized signature
+                                          </div>
+                                          <div className="cards-management-preview__cvv">
+                                            <span>CVV</span>
+                                            <strong>{details && isSelectedCard ? details.cvv || "•••" : "•••"}</strong>
+                                          </div>
+                                        </div>
+                                        <div className="cards-management-preview__back-meta">
+                                          <span>Ending {card.last4Digits ? `•••• ${card.last4Digits}` : "••••"}</span>
+                                          <span>Support +27 800 123 456</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
 
-            <section className="cards-section">
-              <article className="cards-security-panel">
-                <div className="cards-panel-header">
-                  <h2 className="cards-panel-title">Card Security</h2>
+                                  <div className="cards-management-tile__meta">
+                                    <div className="cards-management-tile__meta-row">
+                                      <span>Linked account</span>
+                                      <strong>{card.linkedAccountLabel}</strong>
+                                    </div>
+                                    <div className="accounts-feature-row cards-management-capabilities">
+                                      {card.capabilityBadges.map((capability) => (
+                                        <span key={capability} className="accounts-badge accounts-badge--available">
+                                          {capability}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  </button>
+
+                                  {isSelectedCard ? (
+                                    <button
+                                      type="button"
+                                      className="cards-management-flip-button"
+                                      onClick={() => toggleCardBackView(card._id)}
+                                    >
+                                      {isBackView ? "View front" : "View back"}
+                                    </button>
+                                  ) : null}
+                                </article>
+                                );
+                              })
+                            )}
+                          </div>
+                          {selectedCard ? (
+                            <>
+                              <div className="action-detail-list">
+                                <div className="action-detail-row">
+                                  <span>Status</span>
+                                  <strong>{selectedCard.statusLabel}</strong>
+                                </div>
+                                <div className="action-detail-row">
+                                  <span>Card number</span>
+                                  <strong>{visibleCardNumber}</strong>
+                                </div>
+                                <div className="action-detail-row">
+                                  <span>Expiry</span>
+                                  <strong>{formatExpiry(selectedCard.expiryDate)}</strong>
+                                </div>
+                                <div className="action-detail-row">
+                                  <span>CVV</span>
+                                  <strong>{details?.cvv || "•••"}</strong>
+                                </div>
+                              </div>
+
+                              <div className="action-form__actions">
+                                <button
+                                  type="button"
+                                  className="action-button action-button--ghost"
+                                  onClick={handleViewDetails}
+                                  disabled={isSubmitting}
+                                >
+                                  <FiEye size={16} />
+                                  View Details
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-button action-button--ghost"
+                                  onClick={handleToggleBlock}
+                                  disabled={isSubmitting}
+                                >
+                                  <FiLock size={16} />
+                                  {selectedCard.status === FROZEN_CARD_STATUS ? "Unblock" : "Block"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-button action-button--primary"
+                                  onClick={handleReplace}
+                                  disabled={isSubmitting || selectedCard.status !== ACTIVE_CARD_STATUS}
+                                >
+                                  <FiRefreshCcw size={16} />
+                                  Replace
+                                </button>
+                              </div>
+                            </>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  </article>
                 </div>
-
-                <div className="cards-security-list">
-                  {settings.map(({ title, icon: Icon, enabled }) => (
-                    <button
-                      key={title}
-                      type="button"
-                      className="cards-security-item"
-                      onClick={() => toggleSetting(title)}
-                    >
-                      <span className="cards-security-left">
-                        <span className="cards-security-icon" aria-hidden="true">
-                          <Icon size={16} />
-                        </span>
-                        <span className="cards-security-label">{title}</span>
-                      </span>
-
-                      <span
-                        className={`cards-toggle${enabled ? " cards-toggle--on" : ""}`}
-                        aria-hidden="true"
-                      >
-                        <span className="cards-toggle-thumb" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="cards-security-note">
-                  <FiGlobe size={15} />
-                  Manage how your cards work across online, contactless, and ATM usage.
-                </div>
-              </article>
+              )}
             </section>
           </div>
         </main>
       </div>
-
-      {isAddCardOpen && (
-        <div className="cards-modal-backdrop" role="presentation" onClick={() => setIsAddCardOpen(false)}>
-          <div
-            className="cards-modal modal-dialog modal-dialog-centered"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-card-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="cards-modal-content modal-content">
-              <div className="cards-modal-header">
-                <div>
-                  <h2 id="add-card-title" className="cards-modal-title">
-                    Add New Card
-                  </h2>
-                  <p className="cards-modal-copy">
-                    Create a new card layout entry for this interface.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className="cards-modal-close"
-                  aria-label="Close add card form"
-                  onClick={() => setIsAddCardOpen(false)}
-                >
-                  ×
-                </button>
-              </div>
-
-              <form className="cards-form row g-3" onSubmit={handleAddCard}>
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="card-type">
-                    Card Type
-                  </label>
-                  <select
-                    id="card-type"
-                    name="type"
-                    className="form-select cards-form-control"
-                    value={newCard.type}
-                    onChange={handleInputChange}
-                  >
-                    <option>Virtual Card</option>
-                    <option>Physical Card</option>
-                  </select>
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="card-status">
-                    Status
-                  </label>
-                  <select
-                    id="card-status"
-                    name="status"
-                    className="form-select cards-form-control"
-                    value={newCard.status}
-                    onChange={handleInputChange}
-                  >
-                    <option>Active</option>
-                    <option>Locked</option>
-                  </select>
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="card-digits">
-                    Last 4 Digits
-                  </label>
-                  <input
-                    id="card-digits"
-                    name="lastDigits"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="4582"
-                    className="form-control cards-form-control"
-                    value={newCard.lastDigits}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="cards-form-label" htmlFor="card-expiry">
-                    Expiry
-                  </label>
-                  <input
-                    id="card-expiry"
-                    name="expiry"
-                    type="text"
-                    placeholder="08/27"
-                    className="form-control cards-form-control"
-                    value={newCard.expiry}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="col-12 cards-form-actions">
-                  <button
-                    type="button"
-                    className="cards-form-cancel"
-                    onClick={() => setIsAddCardOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="cards-form-submit">
-                    Add Card
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <PinVerificationModal
+        isOpen={isPinModalOpen}
+        pin={pin}
+        onChange={(value) => setPin(value.replace(/\D/g, "").slice(0, 6))}
+        onClose={closePinModal}
+        onSubmit={handleVerifyPin}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }

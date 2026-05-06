@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import imge from "../assets/Confident professional with smartphone.png";
-import Navbar from "../components/Navbar";
+
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -12,7 +12,6 @@ const LandingPage = () => {
       {/* BACKGROUND GLOWS */}
       <div className="lp-glow primary" />
       <div className="lp-glow secondary" />
-      <Navbar />
 
       {/* HERO SECTION */}
       <section className="lp-hero">
@@ -42,11 +41,11 @@ const LandingPage = () => {
       <section className="lp-account-section">
         <h2 className="lp-section-title">Choose Your Account</h2>
         <div className="lp-account-grid">
-          {/* BASIC CARD */}
+          {/* EVERYDAY BANKING CARD */}
           <div className="lp-account-card">
-            <h3>Basic Account</h3>
+            <h3>Everyday Banking</h3>
             <p>
-              Perfect for everyday transactions and simple money management.
+              Perfect for day-to-day banking, payments, and simple money management.
             </p>
             <ul>
               <li>✔ Free deposits</li>

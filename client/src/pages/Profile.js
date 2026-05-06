@@ -1,75 +1,213 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import { useNotification } from "../components/Notification";
+import { useAccount } from "../context/AccountContext";
+import { apiUrl } from "../config/api";
 
-const Profile = () => {
+const humanizeValue = (value = "") =>
+  String(value)
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim();
+
+const Profile = ({ search, setSearch, searchResults }) => {
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          apiUrl("/profile/me"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setPreferences((prev) => ({
+  ...prev,
+  twoFactor: res.data.twoFactorEnabled || false,
+}));
+        setUserInfo(res.data);
+
+        // also sync edit form
+        setEditForm({
+          email: res.data.email,
+          phone: res.data.phone,
+          location: res.data.location,
+        });
+
+        setUserInfo(res.data);
+        setEditForm({
+          email: res.data.email || "",
+          phone: res.data.phone || "",
+          location: res.data.location || "",
+        });
+      } catch (error) {
+        console.error("Failed to fetch user", error);
+      }
+    };
+
+    fetchUser();
+  }, []);
   const navigate = useNavigate();
+  const { accounts, selectedAccount } = useAccount();
+  const { showNotification } = useNotification();
 
   // State for user information
-  const [userInfo, setUserInfo] = useState({
-    email: "nicholatenozwole@gmail.com",
-    phone: "+27 82 123 4567",
-    location: "Johannesburg, South Africa",
-  });
-
-  // State for edit mode
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Temporary state for form inputs while editing
+  const [userInfo, setUserInfo] = useState({});
   const [editForm, setEditForm] = useState({
-    email: userInfo.email,
-    phone: userInfo.phone,
-    location: userInfo.location,
+    email: "",
+    phone: "",
+    location: "",
   });
-
+  const [isEditing, setIsEditing] = useState(false);
+  const [isToggling2FA, setIsToggling2FA] = useState(false);
   // State for preferences
   const [preferences, setPreferences] = useState({
-    twoFactor: true,
-    pushNotifications: true,
-    language: "English (ZA)",
-  });
+  twoFactor: false, // prevent UI flicker
+  pushNotifications: true,
+  language: "English (ZA)",
+});
+  const activeAccounts = accounts.filter(
+    (account) => account && account.status !== "closed" && account.isActive !== false
+  );
+  // 🔹 UI Consistency
+  // Profile separates customer membership from banking products by reading the live active-account state from AccountContext.
+  const primaryAccount = selectedAccount || activeAccounts[0] || null;
+  const primaryAccountName = primaryAccount?.name || "No active banking account yet.";
+  const primaryAccountType = primaryAccount?.accountType
+    ? humanizeValue(primaryAccount.accountType)
+    : "—";
+  const activeProductsCount = activeAccounts.length;
 
   const handleBackToDashboard = () => {
     navigate("/dashboard");
   };
 
   const handleEditClick = () => {
-    setEditForm({ ...userInfo });
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
     setIsEditing(true);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
     setEditForm((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleSave = () => {
-    setUserInfo({ ...editForm });
+  const handleSave = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    // Include email in the update
+    const res = await axios.put(
+      apiUrl("/profile/update"),
+      {
+        email: editForm.email,     // Add this
+        phone: editForm.phone,
+        location: editForm.location,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    
+    setUserInfo(res.data.user);
+    setEditForm({
+      email: res.data.user.email,
+      phone: res.data.user.phone,
+      location: res.data.user.location,
+    });
+
+    // Update localStorage with new user data
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    
+    // Also update token if email changed (if your token includes email)
+    // You might need to re-login or refresh token here
+
     setIsEditing(false);
-    alert("Profile information updated successfully!");
-  };
+    alert("Profile updated successfully!");
+  } catch (error) {
+    console.error(error);
+    alert(error.response?.data?.error || "Update failed");
+  }
+};
 
   const handleCancel = () => {
+    setEditForm({
+      email: userInfo.email || "",
+      phone: userInfo.phone || "",
+      location: userInfo.location || "",
+    });
     setIsEditing(false);
+    showNotification("info", "Profile changes were discarded.", {
+      title: "Edit Cancelled",
+      duration: 3200,
+    });
   };
 
-  const toggleTwoFactor = () => {
+  const toggleTwoFactor = async () => {
+  if (isToggling2FA) return;
+
+  setIsToggling2FA(true);
+
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await axios.put(
+      "http://localhost:5000/api/profile/toggle-2fa",
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
     setPreferences((prev) => ({
       ...prev,
-      twoFactor: !prev.twoFactor,
+      twoFactor: res.data.twoFactorEnabled,
     }));
-  };
+
+  } catch (error) {
+    alert("Failed to update 2FA setting");
+  } finally {
+    setIsToggling2FA(false);
+  }
+};
 
   const toggleNotifications = () => {
-    setPreferences((prev) => ({
-      ...prev,
-      pushNotifications: !prev.pushNotifications,
-    }));
+    setPreferences((prev) => {
+      const nextValue = !prev.pushNotifications;
+
+      showNotification(
+        nextValue ? "success" : "info",
+        nextValue
+          ? "Push notifications are enabled. You will receive account alerts again."
+          : "Push notifications are paused. Critical security alerts should still be reviewed regularly.",
+        {
+          title: nextValue ? "Notifications Enabled" : "Notifications Paused",
+        }
+      );
+
+      return {
+        ...prev,
+        pushNotifications: nextValue,
+      };
+    });
   };
 
   const handleLanguageChange = () => {
@@ -82,31 +220,34 @@ const Profile = () => {
     ];
     const currentIndex = languages.indexOf(preferences.language);
     const nextIndex = (currentIndex + 1) % languages.length;
+    const nextLanguage = languages[nextIndex];
 
     setPreferences((prev) => ({
       ...prev,
-      language: languages[nextIndex],
+      language: nextLanguage,
     }));
+
+    showNotification("info", `App language switched to ${nextLanguage}.`, {
+      title: "Language Updated",
+    });
   };
 
   return (
-    <div className="app">
+    <div className="dashboard-page">
       <Sidebar />
 
-      <div className="main">
-        <Navbar />
+      <div className="dashboard-main-panel">
+        <Navbar search={search} setSearch={setSearch} searchResults={searchResults} />
 
-        {/* 🔥 THIS FIXES YOUR SCROLL ISSUE */}
-        <div className="content">
+        <main className="dashboard-content-area">
+          <div className="container-fluid px-0 dashboard-shell">
           <div className="profile-container">
-
-            {/* Header */}
             <div className="profile-header">
               <button
                 onClick={handleBackToDashboard}
-                className="profile-back-btn"
+                className="back-btn"
               >
-                ←
+                Back
               </button>
 
               <div className="profile-avatar">
@@ -114,17 +255,27 @@ const Profile = () => {
               </div>
 
               <div className="profile-user-info">
-                <h1>Hi, Nozwelo</h1>
+                <h1>
+                  Hi, {userInfo?.displayName || userInfo?.email || "User"}
+                </h1>
+
                 <p className="profile-badge">
-                  Premium Member since 2024
+                  Member since{" "}
+                  {userInfo?.createdAt
+                    ? new Date(userInfo.createdAt).getFullYear()
+                    : "2024"}
                 </p>
+
+                <div className="profile-subtext">
+                  <p>Customer tier: Premium Member</p>
+                  <p>Primary account: {primaryAccountName}</p>
+                  <p>Account type: {primaryAccountType}</p>
+                  <p>Active products: {activeProductsCount}</p>
+                </div>
               </div>
             </div>
 
-            {/* Content */}
             <div className="profile-content">
-
-              {/* Personal Info */}
               <div className="profile-section">
                 <h2>Personal Information</h2>
 
@@ -159,7 +310,7 @@ const Profile = () => {
                       <input
                         type="email"
                         name="email"
-                        value={editForm.email}
+                        value={editForm.email || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />
@@ -170,7 +321,7 @@ const Profile = () => {
                       <input
                         type="tel"
                         name="phone"
-                        value={editForm.phone}
+                        value={editForm.phone || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />
@@ -181,7 +332,7 @@ const Profile = () => {
                       <input
                         type="text"
                         name="location"
-                        value={editForm.location}
+                        value={editForm.location || ""}
                         onChange={handleInputChange}
                         className="profile-input"
                       />
@@ -206,7 +357,6 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* Preferences */}
               <div className="profile-section">
                 <h2>Account Preferences</h2>
 
@@ -215,16 +365,23 @@ const Profile = () => {
                     <span className="preference-name">
                       Two-Factor Authentication
                     </span>
-                    <span className={`preference-status ${preferences.twoFactor ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.twoFactor ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.twoFactor ? "Enabled" : "Disabled"}
                     </span>
                   </div>
-                  <button
-                    onClick={toggleTwoFactor}
-                    className="preference-toggle"
+                  <div
+                    className={`cards-toggle 
+                      ${preferences.twoFactor ? "cards-toggle--on" : ""} 
+                      ${isToggling2FA ? "opacity-50 cursor-not-allowed" : ""}
+                    `}
+                    onClick={!isToggling2FA ? toggleTwoFactor : undefined}
                   >
-                    Toggle
-                  </button>
+                    <div className="cards-toggle-thumb"></div>
+                  </div>
                 </div>
 
                 <div className="profile-preference">
@@ -232,7 +389,11 @@ const Profile = () => {
                     <span className="preference-name">
                       Push Notifications
                     </span>
-                    <span className={`preference-status ${preferences.pushNotifications ? "enabled" : "disabled"}`}>
+                    <span
+                      className={`preference-status ${
+                        preferences.pushNotifications ? "enabled" : "disabled"
+                      }`}
+                    >
                       {preferences.pushNotifications ? "Enabled" : "Disabled"}
                     </span>
                   </div>
@@ -259,10 +420,10 @@ const Profile = () => {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

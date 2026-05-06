@@ -1,9 +1,7 @@
-
-
 {
   "name": "nexbank",
   "version": "1.0.0",
-    "scripts": {
+  "scripts": {
     "client": "npm start --prefix client",
     "server": "nodemon server/server.js",
     "dev": "concurrently \"npm run server\" \"npm run client\""
@@ -20,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/Nexbank/nexbank/issues"
   },
-  "homepage": "https://github.com/Nexbank/nexbank#readme"
+  "homepage": "https://github.com/Nexbank/nexbank#readme",
+  "devDependencies": {
+    "yaml": "^2.8.4"
+  }
 }

@@ -1,13 +1,85 @@
 const mongoose = require("mongoose");
-
+ 
 const userSchema = new mongoose.Schema({
-  email: String,
+  displayName: {
+    type: String,
+    required: true
+  },
+ 
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+ 
+  password: {
+    type: String,
+    required: true
+  },
 
-  password: String,
+  pinHash: {
+    type: String,
+    select: false
+  },
 
-  displayName: String,
+  pinUpdatedAt: {
+    type: Date,
+    default: null
+  },
 
-  balance: { type: Number, default: 15000 },
+  mustChangePin: {
+    type: Boolean,
+    default: false
+  },
+
+  firstname: {
+    type: String,
+    trim: true
+  },
+
+  surname: {
+    type: String,
+    trim: true
+  },
+ 
+  phone: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+ 
+  saIdNumber: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+
+  address: {
+    type: String,
+    trim: true
+  },
+ 
+  location: {
+    type: String,
+    required: true
+  },
+// added this for the 2-factor authentication
+    twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+ 
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+ 
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
-
+ 
 module.exports = mongoose.model("User", userSchema);

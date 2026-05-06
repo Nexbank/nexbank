@@ -1,3 +1,5 @@
+import { formatCurrency, formatDateTime } from "../utils/currency";
+
 export default function TransactionList({ transactions }) {
   if (transactions.length === 0) {
     return <p className="empty">No transactions found.</p>;
@@ -5,21 +7,28 @@ export default function TransactionList({ transactions }) {
 
   return (
     <div className="tx-list">
-      {transactions.map((tx, i) => (
-        <div key={i} className="tx-card">
-          <div className="tx-icon">💳</div>
+      {transactions.map((transaction) => (
+        <div key={transaction._id || transaction.id} className="tx-card">
+          <div className="tx-icon">R</div>
 
           <div className="tx-info">
-            <div className="tx-name">{tx.name}</div>
-            <div className="tx-date">{tx.date}</div>
+            <div className="tx-name">{transaction.description || transaction.type}</div>
+            <div className="tx-date">{formatDateTime(transaction.createdAt)}</div>
           </div>
 
           <div className="tx-amount">
-            <div className={tx.amount > 0 ? "text-success" : "text-danger"}>
-                {tx.amount > 0 ? "+ " : "- "}R{Math.abs(tx.amount)}
+            <div
+              className={
+                transaction.direction === "credit" ? "text-success" : "text-danger"
+              }
+            >
+              {transaction.direction === "credit" ? "+ " : "- "}
+              {formatCurrency(transaction.amount)}
             </div>
 
-            <div className="tx-tag">{tx.tag}</div>
+            <div className="tx-tag">
+              {transaction.type} · {transaction.status}
+            </div>
           </div>
         </div>
       ))}

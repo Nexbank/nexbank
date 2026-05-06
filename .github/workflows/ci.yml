@@ -10,6 +10,10 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        app: [client, server]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,27 +27,20 @@ jobs:
             client/package-lock.json
             server/package-lock.json
 
-      - name: Install client dependencies
+      - name: Install dependencies (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
         run: npm ci
-        working-directory: client
 
-      - name: Install server dependencies
-        run: npm ci
-        working-directory: server
-
-      - name: Run frontend tests
-        run: npm test -- --runInBand --watchAll=false
-        working-directory: client
+      - name: Run tests (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
+        run: npm test -- --watchAll=false
         env:
           CI: true
 
-      - name: Run backend tests
-        run: npm test
-        working-directory: server
-
-      - name: Build frontend
-        run: npm run build
+      - name: Build frontend only
+        if: matrix.app == 'client'
         working-directory: client
+        run: npm run build
         env:
           CI: true
           REACT_APP_API_BASE_URL: /api
@@ -56,16 +53,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build backend image
+      - name: Build backend Docker image
         run: docker build -t nexbank-backend:ci ./server
 
-      - name: Build frontend image
+      - name: Build frontend Docker image
         run: docker build --build-arg REACT_APP_API_BASE_URL=/api -t nexbank-frontend:ci ./client
 
-      - name: Validate Kubernetes manifests
+      - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: latest
 
-      - name: Dry-run manifests
+      - name: Validate Kubernetes manifests
         run: kubectl apply --dry-run=client -f k8s/

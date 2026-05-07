@@ -42,6 +42,8 @@ const generateTemporaryPin = () => String(Math.floor(1000 + Math.random() * 9000
 
 const sanitizeUser = (user) => {
   const safeUser = user.toObject ? user.toObject() : { ...user };
+  safeUser.firstName = safeUser.firstName || safeUser.firstname || "";
+  safeUser.lastName = safeUser.lastName || safeUser.surname || "";
   safeUser.hasPin = Boolean(safeUser.pinHash);
   delete safeUser.password;
   delete safeUser.pinHash;
@@ -316,7 +318,7 @@ router.post("/login", async (req, res) => {
         html: `<h2>Your code is: ${otpCode}</h2>`,
       });
 
-      return res.json({
+      return res.status(200).json({
         message: "2FA required",
         twoFactorRequired: true,
         email,
@@ -342,14 +344,14 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    res.json({
+    return res.status(200).json({
       message: "Login successful",
       token,
       user: safeUser,
     });
   } catch (error) {
     logServerError("Login failed", error);
-    res.status(500).json({ error: "Login failed" });
+    return res.status(500).json({ error: "Login failed" });
   }
 });
 

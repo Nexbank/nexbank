@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../services/api";
 import "../styles/global.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useNotification } from "../components/Notification";
 import { useAccount } from "../context/AccountContext";
-import { apiUrl } from "../config/api";
 
 const humanizeValue = (value = "") =>
   String(value)
@@ -18,16 +17,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const token = localStorage.getItem("token");
-
-        const res = await axios.get(
-          apiUrl("/profile/me"),
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const res = await API.get("/profile/me");
         setPreferences((prev) => ({
   ...prev,
   twoFactor: res.data.twoFactorEnabled || false,
@@ -108,22 +98,11 @@ const Profile = ({ search, setSearch, searchResults }) => {
 
   const handleSave = async () => {
   try {
-    const token = localStorage.getItem("token");
-
-    // Include email in the update
-    const res = await axios.put(
-      apiUrl("/profile/update"),
-      {
-        email: editForm.email,     // Add this
-        phone: editForm.phone,
-        location: editForm.location,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const res = await API.put("/profile/update", {
+      email: editForm.email,
+      phone: editForm.phone,
+      location: editForm.location,
+    });
     
     setUserInfo(res.data.user);
     setEditForm({
@@ -165,17 +144,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
   setIsToggling2FA(true);
 
   try {
-    const token = localStorage.getItem("token");
-
-    const res = await axios.put(
-      apiUrl("/profile/toggle-2fa"),
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const res = await API.put("/profile/toggle-2fa", {});
 
     setPreferences((prev) => ({
       ...prev,

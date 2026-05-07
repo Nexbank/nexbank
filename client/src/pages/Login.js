@@ -63,6 +63,10 @@ const handleLogin = async (e) => {
     }
 
     // CASE 2: NORMAL LOGIN (NO 2FA)
+    if (!res.data?.token) {
+      throw new Error("Login succeeded but no auth token was returned.");
+    }
+
     localStorage.setItem("token", res.data.token);
     localStorage.setItem("user", JSON.stringify(res.data.user));
 

@@ -38,19 +38,22 @@ const handleVerify = async () => {
   try {
     const res = await API.post("/auth/verify-login-otp", { email, otp });
 
+    if (!res.data?.token) {
+      throw new Error("OTP verification succeeded but no auth token was returned.");
+    }
+
     localStorage.setItem("token", res.data.token);
 
     // Try to get user from response first
     let userData = res.data.user;
 
     if (!userData) {
-      // If no user in response, fetch it
-      const userRes = await API.get("/auth/me", {
-        headers: {
-          Authorization: `Bearer ${res.data.token}`,
-        },
-      });
+      const userRes = await API.get("/profile/me");
       userData = userRes.data;
+    }
+
+    if (!userData) {
+      throw new Error("OTP verification succeeded but no user profile was returned.");
     }
     
     // Store user data

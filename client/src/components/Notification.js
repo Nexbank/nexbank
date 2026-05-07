@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { FiAlertCircle, FiAlertTriangle, FiCheckCircle, FiInfo, FiX } from "react-icons/fi";
-import API from "../services/api";
+import API, { readAuthToken } from "../services/api";
 
 const NotificationContext = createContext(null);
 
@@ -112,7 +112,7 @@ export function NotificationProvider({ children }) {
   }, [removeNotification]);
 
   const refreshNotifications = useCallback(async () => {
-    if (!window.localStorage.getItem("token")) {
+    if (!readAuthToken()) {
       setNotificationFeed([]);
       return [];
     }
@@ -172,7 +172,7 @@ export function NotificationProvider({ children }) {
     };
 
     const handleAuthChanged = () => {
-      if (!window.localStorage.getItem("token")) {
+      if (!readAuthToken()) {
         setNotificationFeed([]);
         return;
       }

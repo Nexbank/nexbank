@@ -41,10 +41,10 @@ export const PRODUCT_CATALOG = Object.freeze([
     filterCategory: "everyday",
     productKind: "account",
     accountType: "private_banking",
-    description: "Premium everyday banking with higher limits and concierge-style service.",
+    description: "Premium everyday banking with priority support and flexible banking service.",
     monthlyFee: 150,
     currency: "ZAR",
-    benefits: ["Priority support", "Higher limits", "Cards"],
+    benefits: ["Priority support", "Flexible banking", "Cards"],
     status: "available_now",
   },
   {

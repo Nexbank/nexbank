@@ -56,8 +56,8 @@ const handleVerify = async () => {
     // Store user data
     localStorage.setItem("user", JSON.stringify(userData));
     
-    // Don't navigate immediately - let the storage event fire first
-    window.dispatchEvent(new Event("storage"));
+    // Don't navigate immediately - let the auth-change event fire first
+    window.dispatchEvent(new Event("nexbank-auth-changed"));
     
     // Small delay to ensure storage event is processed
     setTimeout(() => {

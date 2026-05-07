@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import API from "../services/api";
@@ -14,13 +15,7 @@ const ACTIVE_CARD_STATUS = "active";
 const FROZEN_CARD_STATUS = "frozen";
 const REPLACED_CARD_STATUS = "replaced";
 
-const DEFAULT_LIMITS = Object.freeze({
-  deposit: 50000,
-  bill: 15000,
-  transferInternal: 20000,
-  transferExternal: 10000,
-  voucher: 3000,
-});
+const DEFAULT_LIMITS = Object.freeze({});
 
 const DEFAULT_ACCOUNT_BLUEPRINT = Object.freeze({
   name: "Main Account",
@@ -70,21 +65,33 @@ const LEGACY_ACCOUNT_COMPATIBILITY = Object.freeze({
   Current: DEFAULT_ACCOUNT_BLUEPRINT,
   "Current Account": DEFAULT_ACCOUNT_BLUEPRINT,
   "Main Account": ACCOUNT_OPTION_BLUEPRINTS["Main Account"],
+  current_account: DEFAULT_ACCOUNT_BLUEPRINT,
+  main_account: ACCOUNT_OPTION_BLUEPRINTS["Main Account"],
   "Flexi Account": {
     name: "Flexi Account",
     accountType: "current",
     category: "transactional",
   },
+  flexi_account: {
+    name: "Flexi Account",
+    accountType: "current",
+    category: "transactional",
+  },
   "Transact Account": ACCOUNT_OPTION_BLUEPRINTS["Transact Account"],
+  transact_account: ACCOUNT_OPTION_BLUEPRINTS["Transact Account"],
   TruSave: ACCOUNT_OPTION_BLUEPRINTS.TruSave,
+  trusave: ACCOUNT_OPTION_BLUEPRINTS.TruSave,
   "Student Account": ACCOUNT_OPTION_BLUEPRINTS["Student Account"],
+  student_account: ACCOUNT_OPTION_BLUEPRINTS["Student Account"],
+  "Fixed Deposit": ACCOUNT_OPTION_BLUEPRINTS["Fixed Deposit"],
+  fixed_deposit: ACCOUNT_OPTION_BLUEPRINTS["Fixed Deposit"],
+  "Tax-Free Savings": ACCOUNT_OPTION_BLUEPRINTS["Tax-Free Savings"],
+  tax_free_savings: ACCOUNT_OPTION_BLUEPRINTS["Tax-Free Savings"],
   "Private Banking": ACCOUNT_OPTION_BLUEPRINTS["Private Banking"],
+  private_banking: ACCOUNT_OPTION_BLUEPRINTS["Private Banking"],
   current: DEFAULT_ACCOUNT_BLUEPRINT,
   savings: ACCOUNT_OPTION_BLUEPRINTS.TruSave,
   student: ACCOUNT_OPTION_BLUEPRINTS["Student Account"],
-  fixed_deposit: ACCOUNT_OPTION_BLUEPRINTS["Fixed Deposit"],
-  tax_free_savings: ACCOUNT_OPTION_BLUEPRINTS["Tax-Free Savings"],
-  private_banking: ACCOUNT_OPTION_BLUEPRINTS["Private Banking"],
 });
 const CATEGORY_COMPATIBILITY = Object.freeze({
   cheque: "transactional",
@@ -167,15 +174,48 @@ const humanizeValue = (value = "") =>
     .replace(/\b\w/g, (character) => character.toUpperCase())
     .trim();
 
-const getAccountBlueprint = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) =>
-  ACCOUNT_OPTION_BLUEPRINTS[accountType] ||
-  LEGACY_ACCOUNT_COMPATIBILITY[accountType] || {
+const normalizeAccountType = (value = DEFAULT_ACCOUNT_BLUEPRINT.accountType) => {
+  const rawValue = String(value || DEFAULT_ACCOUNT_BLUEPRINT.accountType).trim();
+  const directBlueprint = ACCOUNT_OPTION_BLUEPRINTS[rawValue] || LEGACY_ACCOUNT_COMPATIBILITY[rawValue];
+
+  if (directBlueprint?.accountType) {
+    return directBlueprint.accountType;
+  }
+
+  const normalizedValue = rawValue.toLowerCase().replace(/[\s-]+/g, "_");
+  const normalizedCompatibility = LEGACY_ACCOUNT_COMPATIBILITY[normalizedValue];
+
+  return normalizedCompatibility?.accountType || normalizedValue || DEFAULT_ACCOUNT_BLUEPRINT.accountType;
+};
+
+const getAccountBlueprint = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) => {
+  const normalizedAccountType = normalizeAccountType(accountType);
+  const directBlueprint = ACCOUNT_OPTION_BLUEPRINTS[accountType] || LEGACY_ACCOUNT_COMPATIBILITY[accountType];
+
+  return directBlueprint ||
+  LEGACY_ACCOUNT_COMPATIBILITY[normalizedAccountType] || {
     name: humanizeValue(accountType || DEFAULT_ACCOUNT_BLUEPRINT.name),
-    accountType: accountType || DEFAULT_ACCOUNT_BLUEPRINT.accountType,
+    accountType: normalizedAccountType,
     category: DEFAULT_ACCOUNT_BLUEPRINT.category,
   };
+};
 const getAccountRules = (accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType) =>
-  ACCOUNT_TYPE_RULES[accountType] || ACCOUNT_TYPE_RULES[DEFAULT_ACCOUNT_BLUEPRINT.accountType];
+  ACCOUNT_TYPE_RULES[normalizeAccountType(accountType)] || ACCOUNT_TYPE_RULES[DEFAULT_ACCOUNT_BLUEPRINT.accountType];
+
+const isActiveAccount = (account) =>
+  Boolean(account) && account.status !== "closed" && account.isActive !== false;
+
+const findActiveAccountByType = (accountList = [], accountType) => {
+  const normalizedAccountType = normalizeAccountType(accountType);
+
+  return (
+    accountList.find(
+      (account) =>
+        isActiveAccount(account) &&
+        normalizeAccountType(account.accountType || account.name) === normalizedAccountType
+    ) || null
+  );
+};
 
 const normalizeCardType = (value = "") => {
   const normalized = String(value).trim().toLowerCase();
@@ -233,7 +273,7 @@ const normalizeAccount = (account, userId, index) => {
     getAccountBlueprint(account?.accountType) ||
     getAccountBlueprint(account?.name) ||
     DEFAULT_ACCOUNT_BLUEPRINT;
-  const accountType = account?.accountType || legacyBlueprint.accountType;
+  const accountType = normalizeAccountType(account?.accountType || account?.name || legacyBlueprint.accountType);
   const normalizedBlueprint = getAccountBlueprint(accountType);
   const category =
     CATEGORY_COMPATIBILITY[account?.category] ||
@@ -363,9 +403,24 @@ const normalizeBankingSummary = (summary, userId) => {
       ? summary.accounts
       : [];
 
-  const accounts = normalizedAccountsSource
+  const normalizedAccounts = normalizedAccountsSource
     .filter(Boolean)
     .map((account, index) => normalizeAccount(account, userId, index));
+  const activeAccountTypes = new Set();
+  const accounts = normalizedAccounts.filter((account) => {
+    if (!isActiveAccount(account)) {
+      return true;
+    }
+
+    const normalizedAccountType = normalizeAccountType(account.accountType);
+
+    if (activeAccountTypes.has(normalizedAccountType)) {
+      return false;
+    }
+
+    activeAccountTypes.add(normalizedAccountType);
+    return true;
+  });
 
   const transactions = sortByCreatedAtDesc(
     (Array.isArray(summary?.transactions) ? summary.transactions : [])
@@ -393,19 +448,7 @@ const normalizeBankingSummary = (summary, userId) => {
   };
 };
 
-const resolveTransferLimitField = (route) => {
-  if (route === "internal") {
-    return "transferInternal";
-  }
-
-  if (route === "external") {
-    return "transferExternal";
-  }
-
-  return "voucher";
-};
-
-const validateMoneyMovement = ({ account, amount, type, route }) => {
+const validateMoneyMovement = ({ account, amount, type }) => {
   // 🔹 Safety / Validation
   // Mirror the main account-rule checks client-side for fast feedback, while keeping the backend as final authority.
   if (!account) {
@@ -425,15 +468,6 @@ const validateMoneyMovement = ({ account, amount, type, route }) => {
     throw new Error(`Enter at least R${minimumAmount.toFixed(2)}.`);
   }
 
-  const limitField =
-    type === "deposit"
-      ? "deposit"
-      : type === "bill"
-        ? "bill"
-        : type === "transfer"
-          ? resolveTransferLimitField(route)
-          : null;
-
   if (type === "bill" && account.rules && !account.rules.allowsBillPayments) {
     throw new Error("Bill payments are not available for this account type.");
   }
@@ -446,14 +480,6 @@ const validateMoneyMovement = ({ account, amount, type, route }) => {
     if (!account.rules.allowsTransfers) {
       throw new Error("Transfers are not available for this account type.");
     }
-
-    if (normalizedAmount > Number(account.rules.dailyTransferLimit || 0)) {
-      throw new Error("This exceeds the daily transfer limit for the selected account.");
-    }
-  }
-
-  if (limitField && normalizedAmount > Number(account.limits?.[limitField] || 0)) {
-    throw new Error("This exceeds the allowed limit for the selected account.");
   }
 
   if (type !== "deposit" && normalizedAmount > Number(account.availableBalance || 0)) {
@@ -540,13 +566,14 @@ export function AccountProvider({ children }) {
     readSelectedAccountId(getUserStorageId())
   );
   const [isLoading, setIsLoading] = useState(() => hasAuthToken());
+  const [hasLoadedSummary, setHasLoadedSummary] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const isCreatingAccountRef = useRef(false);
   const [error, setError] = useState("");
 
   const applySummary = useCallback((summary, userId = getUserStorageId()) => {
     const nextSummary = normalizeBankingSummary(summary, userId);
-    const nextActiveAccounts = nextSummary.accounts.filter(
-      (account) => account.status !== "closed" && account.isActive !== false
-    );
+    const nextActiveAccounts = nextSummary.accounts.filter(isActiveAccount);
     // 🔹 Banking Logic
     // Preserve historical accounts in state, then derive active selectors separately so closed accounts still appear in reporting views.
 
@@ -564,12 +591,11 @@ export function AccountProvider({ children }) {
 
     setSelectedAccountId((currentSelectedId) => {
       const persistedSelectedId = readSelectedAccountId(userId);
-      const preferredSelectedId = currentSelectedId || persistedSelectedId;
-      const hasPreferredAccount = nextActiveAccounts.some(
-        (account) => account._id === preferredSelectedId
+      const preferredSelectedId = [persistedSelectedId, currentSelectedId].find((accountId) =>
+        nextActiveAccounts.some((account) => account._id === accountId)
       );
       const nextSelectedId =
-        hasPreferredAccount ? preferredSelectedId : nextActiveAccounts[0]?._id || null;
+        preferredSelectedId || nextActiveAccounts[0]?._id || null;
 
       writeSelectedAccountId(userId, nextSelectedId);
       return nextSelectedId;
@@ -588,6 +614,7 @@ export function AccountProvider({ children }) {
     setSelectedAccountId(null);
     setIsAuthenticated(false);
     setIsLoading(false);
+    setHasLoadedSummary(false);
     setError(message);
   }, []);
 
@@ -606,7 +633,7 @@ export function AccountProvider({ children }) {
   }, []);
 
   const refreshUserProfile = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!hasAuthToken()) {
       return null;
     }
 
@@ -616,22 +643,22 @@ export function AccountProvider({ children }) {
     } catch {
       return getStoredUser();
     }
-  }, [isAuthenticated, updateStoredUser]);
+  }, [updateStoredUser]);
 
-  const refreshSummary = useCallback(async () => {
-    if (!isAuthenticated) {
+  const refreshSummary = useCallback(async (userId = getUserStorageId()) => {
+    if (!hasAuthToken()) {
       setIsLoading(false);
+      setHasLoadedSummary(false);
       setError("Unauthenticated");
       return;
     }
-
-    const userId = getUserStorageId();
 
     setIsLoading(true);
 
     try {
       const response = await API.get("/banking/summary");
       applySummary(response.data, userId);
+      setHasLoadedSummary(true);
     } catch (requestError) {
       if (requestError.response?.status === 401) {
         resetState(
@@ -641,6 +668,7 @@ export function AccountProvider({ children }) {
         );
         throw requestError;
       }
+      setHasLoadedSummary(true);
       setError(
         requestError.response?.data?.error ||
           requestError.message ||
@@ -650,7 +678,7 @@ export function AccountProvider({ children }) {
     } finally {
       setIsLoading(false);
     }
-  }, [applySummary, isAuthenticated, resetState]);
+  }, [applySummary, resetState]);
 
   useEffect(() => {
     refreshSummary().catch(() => {});
@@ -670,12 +698,15 @@ export function AccountProvider({ children }) {
         return;
       }
 
-      const userId = getUserStorageId();
-      setUser(getStoredUser());
+      const storedUser = getStoredUser();
+      const userId = getUserStorageId(storedUser);
+      setUser(storedUser);
       setSelectedAccountId(readSelectedAccountId(userId));
+      setHasLoadedSummary(false);
+      setIsLoading(true);
       setError("");
       refreshUserProfile().catch(() => {});
-      refreshSummary().catch(() => {});
+      refreshSummary(userId).catch(() => {});
     };
 
     window.addEventListener("nexbank-auth-changed", handleAuthChanged);
@@ -684,7 +715,7 @@ export function AccountProvider({ children }) {
 
   const allAccounts = useMemo(() => accountRecords, [accountRecords]);
   const accounts = useMemo(
-    () => allAccounts.filter((account) => account.status !== "closed" && account.isActive !== false),
+    () => allAccounts.filter(isActiveAccount),
     [allAccounts]
   );
   const closedAccounts = useMemo(
@@ -695,6 +726,7 @@ export function AccountProvider({ children }) {
     () => accounts.find((account) => account._id === selectedAccountId) || accounts[0] || null,
     [accounts, selectedAccountId]
   );
+  const needsAccountOnboarding = isAuthenticated && hasLoadedSummary && !isLoading && accounts.length === 0;
 
   const allTransactions = useMemo(() => sortByCreatedAtDesc(transactions), [transactions]);
   const allCards = useMemo(() => sortByCreatedAtDesc(cards), [cards]);
@@ -769,9 +801,25 @@ export function AccountProvider({ children }) {
 
   const createAccount = useCallback(
     async ({ accountType = DEFAULT_ACCOUNT_BLUEPRINT.accountType }) => {
-      try {
+      const blueprint = getAccountBlueprint(accountType);
+      const existingAccount = findActiveAccountByType(allAccounts, blueprint.accountType);
+
+      if (existingAccount) {
+        const userId = getUserStorageId();
+        setSelectedAccountId(existingAccount._id);
+        writeSelectedAccountId(userId, existingAccount._id);
         setError("");
-        const blueprint = getAccountBlueprint(accountType);
+        return existingAccount;
+      }
+
+      if (isCreatingAccountRef.current) {
+        throw new Error("Account creation is already in progress.");
+      }
+
+      try {
+        isCreatingAccountRef.current = true;
+        setIsCreatingAccount(true);
+        setError("");
         const response = await API.post("/banking/accounts", {
           accountType: blueprint.accountType,
         });
@@ -791,9 +839,12 @@ export function AccountProvider({ children }) {
             "Failed to create account."
         );
         throw requestError;
+      } finally {
+        isCreatingAccountRef.current = false;
+        setIsCreatingAccount(false);
       }
     },
-    [applySummary]
+    [allAccounts, applySummary]
   );
 
   const closeAccount = useCallback(
@@ -1194,7 +1245,10 @@ export function AccountProvider({ children }) {
       allTransactions,
       cardDetailsById,
       isLoading,
+      hasLoadedSummary,
+      isCreatingAccount,
       error,
+      needsAccountOnboarding,
       dashboardSummary,
       insightsSummary,
       refreshSummary,
@@ -1233,9 +1287,12 @@ export function AccountProvider({ children }) {
       error,
       freezeCard,
       getCardDetails,
+      hasLoadedSummary,
       isAuthenticated,
       insightsSummary,
       isLoading,
+      isCreatingAccount,
+      needsAccountOnboarding,
       payBill,
       refreshSummary,
       refreshUserProfile,

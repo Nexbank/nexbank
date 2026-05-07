@@ -26,7 +26,7 @@ const ACCOUNT_PRODUCTS = [
   {
     name: "TruSave",
     accountType: "savings",
-    description: "Save money, limited withdrawals",
+    description: "Save money, flexible withdrawals",
     monthlyFee: 0,
   },
   {
@@ -50,7 +50,7 @@ const ACCOUNT_PRODUCTS = [
   {
     name: "Private Banking",
     accountType: "private_banking",
-    description: "Premium banking with higher limits",
+    description: "Premium banking with priority support",
     monthlyFee: 150,
   },
 ];
@@ -106,6 +106,7 @@ export default function Dashboard({ search, setSearch, searchResults }) {
     selectedTransactions,
     dashboardSummary,
     isLoading,
+    needsAccountOnboarding,
     selectAccount,
   } = useAccount();
 
@@ -153,7 +154,7 @@ export default function Dashboard({ search, setSearch, searchResults }) {
     );
   }, [dashboardSummary.recentTransactions, search]);
 
-  const shouldShowAccountState = !isLoading && !selectedAccount;
+  const shouldShowAccountState = needsAccountOnboarding;
   const accountDisplayName = selectedAccount?.name || selectedAccount?.accountType || "Selected account";
   const accountDisplayNumber = selectedAccount?.accountNumber || "Account unavailable";
   const accountDisplayType = [selectedAccount?.accountType, selectedAccount?.category]
@@ -197,8 +198,8 @@ export default function Dashboard({ search, setSearch, searchResults }) {
           isAvailable: selectedAccountRules.allowsTransfers !== false,
         },
         {
-          label: "Daily limit",
-          value: formatCurrency(selectedAccountRules.dailyTransferLimit || 0),
+          label: "Transfers",
+          value: selectedAccountRules.allowsTransfers !== false ? "Available" : "Unavailable",
           isAvailable: true,
         },
       ];

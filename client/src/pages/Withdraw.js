@@ -85,7 +85,12 @@ export default function Withdraw({ search, setSearch, searchResults }) {
       showSuccessToast("Withdrawal completed successfully.");
       navigate("/dashboard");
     } catch (error) {
-      const message = error.response?.data?.error || "Withdrawal failed. Please try again.";
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Withdrawal failed. Please try again.";
+      console.error("Withdrawal failed:", message, error.response?.data || error);
       await showErrorAlert("Withdrawal failed", message);
     } finally {
       setIsSubmitting(false);

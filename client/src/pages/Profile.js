@@ -168,7 +168,7 @@ const Profile = ({ search, setSearch, searchResults }) => {
     const token = localStorage.getItem("token");
 
     const res = await axios.put(
-      "http://localhost:5000/api/profile/toggle-2fa",
+      apiUrl("/profile/toggle-2fa"),
       {},
       {
         headers: {

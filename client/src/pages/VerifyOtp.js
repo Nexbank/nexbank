@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import API from "../services/api";
 
 const VerifyOtp = () => {
   const [otp, setOtp] = useState("");
@@ -36,10 +36,7 @@ const handleVerify = async () => {
   setIsVerifying(true);
 
   try {
-    const res = await axios.post(
-      "http://localhost:5000/api/auth/verify-login-otp",
-      { email, otp }
-    );
+    const res = await API.post("/auth/verify-login-otp", { email, otp });
 
     localStorage.setItem("token", res.data.token);
 
@@ -48,14 +45,11 @@ const handleVerify = async () => {
 
     if (!userData) {
       // If no user in response, fetch it
-      const userRes = await axios.get(
-        "http://localhost:5000/api/auth/me",
-        {
-          headers: {
-            Authorization: `Bearer ${res.data.token}`,
-          },
-        }
-      );
+      const userRes = await API.get("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${res.data.token}`,
+        },
+      });
       userData = userRes.data;
     }
     
@@ -86,7 +80,7 @@ const handleVerify = async () => {
     setIsResending(true);
 
     try {
-      await axios.post("http://localhost:5000/api/auth/resend-login-otp", { email });
+      await API.post("/auth/resend-login-otp", { email });
       setCountdown(60);
       alert("A new OTP has been sent to your email address");
     } catch (err) {

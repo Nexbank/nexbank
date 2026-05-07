@@ -7,7 +7,11 @@ const authMiddleware = (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = String(authHeader.split(" ")[1] || "").trim();
+
+  if (!token || token === "undefined" || token === "null") {
+    return res.status(401).json({ error: "Missing or invalid token" });
+  }
 
   try {
     const decoded = jwt.verify(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import API from "../services/api";
+import API, { readAuthToken } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { useAccount } from "../context/AccountContext";
@@ -290,17 +290,22 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
+      const token = readAuthToken();
 
-      if (!token || !userId) {
+      if (!token) {
         setLoading(false);
         return;
       }
 
       try {
         const profileResponse = await API.get("/profile/me");
-        updateStoredUser(profileResponse.data);
+        const nextUser = updateStoredUser(profileResponse.data);
+        const userId = nextUser?._id || profileResponse.data?._id || user?._id;
+
+        if (!userId) {
+          setLoading(false);
+          return;
+        }
 
         const response = await API.get(`/settings/${userId}`);
 
@@ -321,11 +326,11 @@ export default function SettingsPage({ search, setSearch, searchResults }) {
     };
 
     fetchSettings();
-  }, [updateStoredUser]);
+  }, [updateStoredUser, user?._id]);
 
   const saveSettings = async (updatedSettings) => {
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
+    const token = readAuthToken();
+    const userId = user?._id;
 
     if (!token || !userId) {
       return;

@@ -127,8 +127,11 @@ export default function ExploreProducts({ search, setSearch, searchResults }) {
         setError("");
         // 🔹 Ledger Update
         // Product opening reuses the real account-creation flow instead of creating placeholder UI products.
-        await createAccount({ accountType: product.accountType });
-        showSuccessToast("Account created successfully.");
+        const result = await createAccount({ accountType: product.accountType });
+
+        if (result.created) {
+          showSuccessToast("Account created successfully.");
+        }
         navigate("/accounts", { state: { accountType: product.accountType } });
       } catch (requestError) {
         const message =

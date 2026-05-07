@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import API from "../services/api";
+import API, { readAuthToken } from "../services/api";
 
 const SELECTED_ACCOUNT_KEY_PREFIX = "nexbank-selected-account-id";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -249,7 +249,7 @@ const getUserStorageId = (user = getStoredUser()) => user?._id || user?.email ||
 const getSelectedAccountStorageKey = (userId = getUserStorageId()) =>
   `${SELECTED_ACCOUNT_KEY_PREFIX}:${userId}`;
 
-const hasAuthToken = () => Boolean(window.localStorage.getItem("token"));
+const hasAuthToken = () => Boolean(readAuthToken());
 
 const readSelectedAccountId = (userId = getUserStorageId()) =>
   window.localStorage.getItem(getSelectedAccountStorageKey(userId)) || null;
@@ -569,6 +569,7 @@ export function AccountProvider({ children }) {
   const [hasLoadedSummary, setHasLoadedSummary] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const isCreatingAccountRef = useRef(false);
+  const summaryRequestIdRef = useRef(0);
   const [error, setError] = useState("");
 
   const applySummary = useCallback((summary, userId = getUserStorageId()) => {
@@ -655,10 +656,20 @@ export function AccountProvider({ children }) {
 
     setIsLoading(true);
 
+    const requestId = summaryRequestIdRef.current + 1;
+    summaryRequestIdRef.current = requestId;
+
     try {
       const response = await API.get("/banking/summary");
-      applySummary(response.data, userId);
+      const nextSummary = normalizeBankingSummary(response.data, userId);
+
+      if (summaryRequestIdRef.current !== requestId) {
+        return nextSummary;
+      }
+
+      applySummary(nextSummary, userId);
       setHasLoadedSummary(true);
+      return nextSummary;
     } catch (requestError) {
       if (requestError.response?.status === 401) {
         resetState(
@@ -809,7 +820,10 @@ export function AccountProvider({ children }) {
         setSelectedAccountId(existingAccount._id);
         writeSelectedAccountId(userId, existingAccount._id);
         setError("");
-        return existingAccount;
+        return {
+          account: existingAccount,
+          created: false,
+        };
       }
 
       if (isCreatingAccountRef.current) {
@@ -823,15 +837,39 @@ export function AccountProvider({ children }) {
         const response = await API.post("/banking/accounts", {
           accountType: blueprint.accountType,
         });
-        const account = response.data.account;
-        applySummary(response.data, getUserStorageId());
-
         const userId = getUserStorageId();
+        const created = response.data?.message === "Account created successfully";
+        let nextSummary = normalizeBankingSummary(response.data, userId);
+
+        applySummary(nextSummary, userId);
+        setHasLoadedSummary(true);
+
+        let account =
+          findActiveAccountByType(nextSummary.accounts, blueprint.accountType) ||
+          normalizeAccount(response.data?.account, userId, 0);
+
+        if (!findActiveAccountByType(nextSummary.accounts, blueprint.accountType)) {
+          const refreshedSummary = await refreshSummary(userId);
+          if (refreshedSummary) {
+            nextSummary = refreshedSummary;
+            applySummary(nextSummary, userId);
+            setHasLoadedSummary(true);
+            account = findActiveAccountByType(nextSummary.accounts, blueprint.accountType) || account;
+          }
+        }
+
+        if (!account || !isActiveAccount(account)) {
+          throw new Error("Account was not returned in your latest banking summary.");
+        }
+
         const nextSelectedId = account?._id || account?.id || null;
         setSelectedAccountId(nextSelectedId);
         writeSelectedAccountId(userId, nextSelectedId);
 
-        return account;
+        return {
+          account,
+          created,
+        };
       } catch (requestError) {
         setError(
           requestError.response?.data?.error ||
@@ -844,7 +882,7 @@ export function AccountProvider({ children }) {
         setIsCreatingAccount(false);
       }
     },
-    [allAccounts, applySummary]
+    [allAccounts, applySummary, refreshSummary]
   );
 
   const closeAccount = useCallback(

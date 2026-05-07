@@ -1,5 +1,26 @@
 import axios from "axios";
 
+export const AUTH_TOKEN_STORAGE_KEY = "token";
+
+export const readAuthToken = () => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  const normalizedToken = String(token || "").trim();
+
+  if (
+    !normalizedToken ||
+    normalizedToken === "undefined" ||
+    normalizedToken === "null"
+  ) {
+    return "";
+  }
+
+  return normalizedToken;
+};
+
 const resolveApiBaseUrl = () => {
   const configuredBaseUrl = process.env.REACT_APP_API_BASE_URL?.trim();
 
@@ -24,10 +45,12 @@ const API = axios.create({
 
 // ✅ ADD THIS
 API.interceptors.request.use((req) => {
-  const token = localStorage.getItem("token");
+  const token = readAuthToken();
 
   if (token) {
     req.headers.Authorization = `Bearer ${token}`;
+  } else if (req.headers?.Authorization) {
+    delete req.headers.Authorization;
   }
 
   return req;

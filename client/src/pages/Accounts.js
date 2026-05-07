@@ -164,8 +164,11 @@ export default function Accounts({ search, setSearch, searchResults }) {
 
     try {
       setIsCreatingAccount(true);
-      const account = await createAccount({ accountType: product.accountType });
-      showSuccessToast(`${account?.name || product.name} opened successfully.`);
+      const result = await createAccount({ accountType: product.accountType });
+
+      if (result.created) {
+        showSuccessToast(`${result.account?.name || product.name} opened successfully.`);
+      }
     } catch (requestError) {
       await showErrorAlert(
         "Account creation failed",

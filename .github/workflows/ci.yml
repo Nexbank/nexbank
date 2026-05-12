@@ -57,7 +57,11 @@ jobs:
         run: docker build -t nexbank-backend:ci ./server
 
       - name: Build frontend Docker image
-        run: docker build --build-arg REACT_APP_API_BASE_URL=https://nexbank-backend-o3kz.onrender.com/api -t nexbank-frontend:ci ./client
+        run: |
+          docker build \
+            --build-arg REACT_APP_API_BASE_URL=https://nexbank-backend-o3kz.onrender.com/api \
+            -t nexbank-frontend:ci \
+            ./client
 
       - name: Setup Node.js for config validation
         uses: actions/setup-node@v4
@@ -73,10 +77,29 @@ jobs:
         run: docker compose config
 
       - name: Validate Prometheus config
-        run: docker run --rm -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:v2.55.1 promtool check config /etc/prometheus/prometheus.yml
+        run: |
+          docker run --rm \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 \
+            promtool check config /etc/prometheus/prometheus.yml
 
       - name: Validate Grafana dashboard JSON
         run: jq empty monitoring/grafana/dashboards/nexbank-api-dashboard.json
 
       - name: Validate Kubernetes YAML
-        run: node -e "const fs=require('fs'); const path=require('path'); const YAML=require('yaml'); for (const file of fs.readdirSync('k8s').filter((name)=>name.endsWith('.yaml'))) { const body=fs.readFileSync(path.join('k8s', file), 'utf8'); YAML.parseAllDocuments(body).forEach((doc)=>{ if (doc.errors.length) throw new Error(`${file}: ${doc.errors[0].message}`); }); }"
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const YAML = require('yaml');
+
+          for (const file of fs.readdirSync('k8s').filter((name) => name.endsWith('.yaml'))) {
+            const body = fs.readFileSync(path.join('k8s', file), 'utf8');
+
+            YAML.parseAllDocuments(body).forEach((doc) => {
+              if (doc.errors.length) {
+                throw new Error(file + ': ' + doc.errors[0].message);
+              }
+            });
+          }
+          "

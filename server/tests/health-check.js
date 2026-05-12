@@ -19,6 +19,14 @@ const run = async () => {
       assert.equal(body.service, "nexbank-api");
     }
 
+    const metricsResponse = await fetch(`http://127.0.0.1:${address.port}/metrics`);
+    const metricsBody = await metricsResponse.text();
+
+    assert.equal(metricsResponse.status, 200);
+    assert.match(metricsResponse.headers.get("content-type"), /text\/plain/);
+    assert.match(metricsBody, /nexbank_api_uptime_seconds/);
+    assert.match(metricsBody, /nexbank_http_requests_total/);
+
     console.log("Backend health check passed");
   } finally {
     await new Promise((resolve, reject) => {

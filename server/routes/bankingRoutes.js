@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const authMiddleware = require("../middleware/authMiddleware");
+const { recordTransaction } = require("../metrics");
 const { createNotification } = require("../services/notificationService");
 const {
   getBankingSummary,
@@ -321,6 +322,11 @@ router.post("/transactions", async (req, res) => {
       billerName: req.body.billerName || "",
       dynamicFields: req.body.dynamicFields || {},
     });
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "standard",
+    });
     await notifyForTransaction(req.user.userId, transaction);
 
     const summary = await loadSummary(req.user.userId);
@@ -361,6 +367,11 @@ router.patch("/transactions/:id/status", async (req, res) => {
       req.params.id,
       normalizeTransactionStatus(req.body.status, "completed")
     );
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "standard",
+    });
     const summary = await loadSummary(req.user.userId);
 
     res.json({
@@ -488,6 +499,11 @@ router.post("/accounts/:id/apply-monthly-fee", async (req, res) => {
     // 🔹 Future-ready
     // Monthly fees are real ledger transactions now, even though billing automation is intentionally deferred.
     const transaction = await applyMonthlyAccountFee(req.user.userId, req.params.id);
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "standard",
+    });
     await notifyForTransaction(req.user.userId, transaction);
     const summary = await loadSummary(req.user.userId);
 
@@ -704,6 +720,11 @@ router.post("/deposit", async (req, res) => {
         accountNumber: req.body.sourceAccountNumber || "",
       },
     });
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "standard",
+    });
     await notifyForTransaction(req.user.userId, transaction);
 
     const summary = await loadSummary(req.user.userId);
@@ -754,6 +775,11 @@ router.post("/withdraw", async (req, res) => {
         accountNumber: req.body.beneficiaryAccountNumber || "",
         accountType: req.body.accountType || "",
       },
+    });
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "standard",
     });
     await notifyForTransaction(req.user.userId, transaction);
 

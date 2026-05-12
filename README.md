@@ -304,3 +304,45 @@ For the Week 3 submission, capture:
 - `kubectl get svc -n nexbank`
 - `kubectl logs deployment/backend -n nexbank`
 - scaling output after increasing frontend/backend replicas
+
+## Week 4 Monitoring, Optimization & Presentation
+
+### Prometheus and Grafana
+
+The backend exposes Prometheus metrics at:
+
+```bash
+http://localhost:5000/metrics
+```
+
+Start the full monitored stack:
+
+```bash
+docker compose up --build
+```
+
+Week 4 monitoring URLs:
+
+- Frontend: `http://localhost:3000`
+- Backend health: `http://localhost:5000/healthz`
+- Backend metrics: `http://localhost:5000/metrics`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001`
+
+Grafana credentials:
+
+- Username: `admin`
+- Password: `admin`
+
+The dashboard is automatically provisioned at `NexBank / NexBank API Observability` and displays:
+
+- API latency by route
+- API request rate
+- Transaction volume by type
+- Transaction activity by status
+
+### Documentation and Demo
+
+Final Week 4 documentation is available in [`docs/week4-monitoring.md`](docs/week4-monitoring.md). It includes the architecture diagram, runbook, testing notes, performance tuning notes, Loom demo outline, and IBM-aligned skills reflection.
+
+To publish documentation through GitHub Pages, use the repository `docs/` folder as the Pages source.

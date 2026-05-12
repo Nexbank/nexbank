@@ -13,6 +13,7 @@ const bankingRoutes = require("./routes/bankingRoutes");
 const paybillRoutes = require("./routes/paybill");
 const notificationRoutes = require("./routes/notificationRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const { metricsMiddleware, renderMetrics } = require("./metrics");
 
 const PORT = Number(process.env.PORT || 5000);
 
@@ -21,6 +22,7 @@ const createApp = () => {
 
   app.use(cors());
   app.use(express.json());
+  app.use(metricsMiddleware);
 
   app.get(["/healthz", "/api/healthz"], (req, res) => {
     res.status(200).json({
@@ -28,6 +30,11 @@ const createApp = () => {
       service: "nexbank-api",
       timestamp: new Date().toISOString(),
     });
+  });
+
+  app.get("/metrics", (req, res) => {
+    res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    res.send(renderMetrics());
   });
 
   app.use("/api/profile", profileRoutes);

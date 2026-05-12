@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const Account = require("../models/Account");
 const authMiddleware = require("../middleware/authMiddleware");
+const { recordTransaction } = require("../metrics");
 const { createNotification } = require("../services/notificationService");
 const {
   createTransaction,
@@ -84,6 +85,11 @@ router.post("/pay-bill", authMiddleware, async (req, res) => {
       },
       billerName: billerName || "",
       dynamicFields,
+    });
+    recordTransaction({
+      type: transaction.type,
+      status: transaction.status,
+      route: transaction.metadata?.route || "pay-bill",
     });
     if (transaction.status === "completed") {
       await createNotification(user._id, {
